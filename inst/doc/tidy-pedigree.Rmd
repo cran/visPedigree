@@ -1,0 +1,210 @@
+---
+title: "1. How to tidy a pedigree"
+author: "Sheng Luan"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{1. How to tidy a pedigree}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+library(visPedigree)
+```
+
+Pedigrees play an important role in animal selective breeding programs. On the one hand, pedigree information can improve the accuracy of estimated breeding values. On the other hand, it helps control inbreeding and avoid inbreeding depression. Therefore, reliable and accurate pedigree records are essential for any selective breeding program. In addition, pedigrees are typically stored in a three-column format (individual, sire, and dam), which makes it difficult to visualize ancestors and descendants. Consequently, visualizing individual pedigrees is highly beneficial. For the Windows platform, Professor Yang Da's team at the University of Minnesota developed pedigraph, a software for displaying individual pedigrees. It can handle pedigrees containing many individuals. While powerful, it requires configuration via a parameter file. Professor Brian Kinghorn at the University of New England developed [pedigree viewer](https://bkinghor.une.edu.au/pedigree.htm), which can trim, prune, and visually display pedigrees in a windowed interface. However, if the number of individuals is very large, they may overlap. Thus, pedigree visualization functions require further optimization. In the R environment, packages like `pedigree`, `nadiv`, and `optiSel` provide pedigree preparation functions. Packages such as `kinship2` and `synbreed` can also be used to draw pedigree trees. However, these trees often suffer from significant overlapping when the number of individuals is large.
+
+To address this, we developed the [visPedigree](https://github.com/luansheng/visPedigree) package. Built on `data.table` and `igraph`, it offers robust data cleaning and social network visualization capabilities, significantly enhancing pedigree tidying and visualization. With this package, users can trace and prune ancestors and descendants across multiple generations. It automatically optimizes the pedigree tree layout and can quickly display pedigrees with over 10,000 individuals per generation by compacting full-sib groups and using outlined displays. The main contents of this guide are as follows:
+
+1. [Installation of the visPedigree package](#1)   
+2. [The specification of pedigree format](#2)   
+3. [Checking and tidying pedigree](#3)   
+3.1 [Introduction](#3.1)   
+3.2 [Pedigree loop detection](#3.2)   
+3.3 [Tracing the pedigree of a specific individual](#3.3)   
+3.4 [Creating an integer pedigree](#3.4)   
+3.5 [Calculating inbreeding coefficients](#3.5)   
+3.6 [Summarizing the pedigree](#3.6)
+
+## 1. Installation of the visPedigree package {#1}
+
+The visPedigree package can be installed from CRAN:
+```r
+install.packages("visPedigree")
+```
+
+Or from GitHub:
+```r
+# install.packages("devtools")
+devtools::install_github("luansheng/visPedigree")
+```
+
+## 2. Pedigree format specification {#2}
+The first three columns of pedigree data must be in the order of individual, sire, and dam IDs. The column names can be customized, but their order must remain unchanged. Individual IDs should not be coded as `""`, `" "`, `"0"`, `*`, or `NA`; otherwise, they will be removed from the pedigree. Missing parents should be denoted by `NA`, `0`, or `*`. Spaces and empty strings (`""`) will also be treated as missing parents, though this is not recommended. Additional columns, such as sex and generation, can also be included.
+
+## 3. Checking and tidying pedigree {#3}
+
+### 3.1 Introduction {#3.1}
+The pedigree can be checked and tidied through the `tidyped()` function.
+
+This function takes a pedigree, checks for duplicates and bisexual individuals, detects loops, adds missing founders, sorts the pedigree, and traces candidate pedigrees. 
+
+If the `cand` parameter is provided, only those individuals and their ancestors or descendants are retained. 
+
+Tracing direction and the number of generations can be specified using the `trace` and `tracegen` parameters. 
+
+Virtual generations are inferred and assigned when `addgen = TRUE`. 
+
+A numeric pedigree is generated when `addnum = TRUE`. 
+
+Sex will be inferred for all individuals if sex information is missing. If a `Sex` column is present, values should be coded as `'male'`, `'female'`, or `NA` (unknown). Missing sex information will be inferred from the pedigree structure where possible.
+
+The visPedigree package comes with multiple datasets. You can check through the following command.
+```{r gettingdataset,eval=FALSE}
+data(package="visPedigree")
+```
+
+The following code displays the `simple_ped` dataset, which contains four columns: individual, sire, dam, and sex. Missing parents are denoted by `'NA'`, `'0'`, or `*`. Founders are not explicitly listed, and some parents appear after their offspring in the original data.
+```{r simpleped}
+head(simple_ped)
+tail(simple_ped)
+# The number of individuals in the pedigree dataset
+nrow(simple_ped)
+# Individual records with missing parents
+simple_ped[Sire %in% c("0", "*", "NA", NA) |
+             Dam %in% c("0", "*", "NA", NA)]
+```
+Example: If we incorrectly set the female `J0Z167` as the sire of `J2F588`, `tidyped()` will detect this bisexual conflict.
+```{r}
+x <- data.table::copy(simple_ped)
+x[ID == "J2F588", Sire := "J0Z167"]
+y <- tidyped(x)
+```
+
+The `tidyped()` function sorts the pedigree, replaces missing parents with `NA`, ensures parents precede their offspring, and adds missing founders.
+```{r tidyped}
+tidy_simple_ped <- tidyped(simple_ped)
+head(tidy_simple_ped)
+tail(tidy_simple_ped)
+nrow(tidy_simple_ped)
+```
+
+In the resulting `tidy_simple_ped`, founders are added with their inferred sex, and parents are sorted before their offspring. The number of individuals increases from 31 to 59. The columns are renamed to `Ind`, `Sire`, and `Dam`. Missing parents are uniformly replaced with `NA`, and `tidyped()` provides informative messages during processing. By default, `tidy_simple_ped` includes new columns: `Gen`, `IndNum`, `SireNum`, and `DamNum`. These can be disabled by setting `addgen = FALSE` and `addnum = FALSE`.
+
+If the input dataset lacks a `Sex` column, it will be automatically added to the tidied output.
+
+```{r}
+tidy_simple_ped_no_gen_num <-
+  tidyped(simple_ped, addgen = FALSE, addnum = FALSE)
+    head(tidy_simple_ped_no_gen_num)
+```
+Once tidied, you can use `data.table::fwrite()` to export the pedigree for genetic evaluation software like ASReml.
+
+### 3.2 Pedigree loop detection {#3.2}
+A pedigree loop occurs when an individual is its own ancestor (e.g., A is the parent of B, B is the parent of C, and C is the parent of A). This is a biological impossibility and a serious error in pedigree records. The `tidyped()` function automatically detects these cycles using graph theory algorithms. If a loop is detected, the function will stop and provide information about the individuals involved in the loop.
+
+The following code demonstrates what happens when a pedigree with loops is processed:
+```{r loop_detection, error=TRUE}
+# loop_ped contains cycles (e.g., V -> T -> R -> P -> M -> V)
+# Attempting to tidy it will result in an error
+try(tidyped(loop_ped))
+```
+Detecting loops early is crucial for ensuring the integrity of genetic evaluations.
+
+When saving the pedigree, missing parents should typically be replaced with `0`. 
+```{r writeped,eval=FALSE}
+saved_ped <- data.table::copy(tidy_simple_ped)
+saved_ped[is.na(Sire), Sire := "0"]
+saved_ped[is.na(Dam), Dam := "0"]
+data.table::fwrite(
+  x = saved_ped,
+  file = tempfile(fileext = ".csv"),
+  sep = ",",
+  quote = FALSE
+)
+```
+
+### 3.3 Tracing the pedigree of a specific individual {#3.3}
+
+To trace the pedigree of specific individuals, use the `cand` parameter. This adds a `Cand` column where `TRUE` identifies the specified candidates. If `cand` is provided, only the candidates and their ancestors/descendants are retained.
+```{r}
+tidy_simple_ped_J5X804_ancestors <-
+  tidyped(ped = tidy_simple_ped_no_gen_num, cand = "J5X804")
+  tail(tidy_simple_ped_J5X804_ancestors)
+```
+
+By default, the function traces ancestors. You can limit the number of generations using `tracegen`. If `tracegen` is `NULL`, all available generations are traced.
+
+```{r}
+tidy_simple_ped_J5X804_ancestors_2 <-
+  tidyped(ped = tidy_simple_ped_no_gen_num,
+  cand = "J5X804",
+  tracegen = 2)
+  print(tidy_simple_ped_J5X804_ancestors_2)
+```
+The code above traces the ancestors of `J5X804` back two generations.
+
+To trace descendants, set `trace = 'down'`.
+
+There are three options for the **trace** parameter:
+
+* "up"-trace candidates' pedigree to ancestors;
+* "down"-trace candidates' pedigree to descendants;
+* "all"-trace candidaes' pedigree to ancestors and descendants simultaneously.
+
+```{r}
+tidy_simple_ped_J0Z990_offspring <-
+  tidyped(ped = tidy_simple_ped_no_gen_num, cand = "J0Z990", trace = "down")
+  print(tidy_simple_ped_J0Z990_offspring)
+```
+Tracing the descendants of `J0Z990` reveals a total of 5 individuals.
+
+### 3.4 Creating an integer pedigree {#3.4}
+Certain genetic evaluation programs require integer-coded pedigrees, where individuals are numbered consecutively to facilitate the calculation of the additive genetic relationship matrix.
+
+By default, `tidyped()` adds `IndNum`, `SireNum`, and `DamNum` columns. This can be disabled with `addnum = FALSE`.
+```{r intped}
+tidy_simple_ped_with_int <-
+  tidyped(ped = tidy_simple_ped_no_gen_num, addnum = TRUE)
+head(tidy_simple_ped_with_int)
+```
+
+
+### 3.5 Calculating inbreeding coefficients {#3.5}
+The inbreeding coefficient (F) of each individual can be calculated using tidyped() or inbreed() functions. There are two options to add the inbreeding coefficients to a tidied pedigree:
+
+1. Set `inbreed = TRUE` in the `tidyped()` function. This will calculate the inbreeding coefficients using the `nadiv` package and add an `f` column to the tidied pedigree.
+2. Or call `inbreed()` directly on a tidied pedigree to add the `f` column. 
+
+```{r inbreed, fig.width=6.5, fig.height=6.5}
+# Create a simple inbred pedigree
+library(data.table)
+test_ped <- data.table(
+  Ind = c("A", "B", "C", "D", "E"),
+  Sire = c(NA, NA, "A", "C", "C"),
+  Dam = c(NA, NA, "B", "B", "D"),
+  Sex = c("male", "female", "male", "female", "male")
+)
+# Option 1: Calculate during tidying
+tidy_test <- tidyped(test_ped, inbreed = TRUE)
+head(tidy_test)
+
+# Option 2: Calculate after tidying
+tidy_test <- inbreed(tidyped(test_ped))
+```
+
+### 3.6 Summarizing the pedigree {#3.6}
+The `summary()` method provides a quick overview of the pedigree statistics, including the number of individuals, sex distribution, founders, and isolated individuals. If inbreeding coefficients have been calculated (column `f`), the summary will also include descriptive statistics of inbreeding.
+
+```{r summary}
+# Summarize the tidied pedigree
+summary(tidy_simple_ped)
+
+# Summarize with inbreeding info
+summary(tidy_test)
+```

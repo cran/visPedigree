@@ -2,7 +2,7 @@
 #'
 #' This function takes a pedigree, checks for duplicate and bisexual individuals, detects pedigree loops using graph theory, adds missing founders, assigns generation numbers, sorts the pedigree, and traces the pedigree of specified candidates. If the \code{cand} parameter contains individual IDs, only those individuals and their ancestors or descendants are retained. Tracing direction and the number of generations can be specified using the \code{trace} and \code{tracegen} parameters.
 #' 
-#' Compared to the legacy version, this function handles cyclic pedigrees more robustly by detecting and reporting loops, and it is generally faster for large pedigrees due to the use of sparse graph algorithms from the \code{igraph} package. Generation assignment is performed using a topological sorting-based algorithm that ensures parents are always placed in a generation strictly above their offspring (TGI algorithm).
+#' Compared to the legacy version, this function handles cyclic pedigrees more robustly by detecting and reporting loops, and it is generally faster for large pedigrees due to the use of sparse graph algorithms from the \code{igraph} package. Generation assignment can be performed using either a top-down approach (default, aligning founders at the top) or a bottom-up approach (aligning terminal nodes at the bottom).
 #'
 #' @param ped A data.table or data frame containing the pedigree. The first three columns must be \strong{individual}, \strong{sire}, and \strong{dam} IDs. Additional columns, such as sex or generation, can be included. Column names can be customized, but their order must remain unchanged. Individual IDs should not be coded as "", " ", "0", "*", or "NA"; otherwise, they will be removed. Missing parents should be denoted by "NA", "0", or "*". Spaces and empty strings ("") are also treated as missing parents but are not recommended.
 #' @param cand A character vector of individual IDs, or NULL. If provided, only the candidates and their ancestors/descendants are retained.
@@ -10,12 +10,19 @@
 #' @param tracegen An integer specifying the number of generations to trace. This parameter is only used if \code{trace} is not NULL. If NULL or 0, all available generations are traced.
 #' @param addgen A logical value indicating whether to generate generation numbers. Default is TRUE, which adds a \strong{Gen} column to the output.
 #' @param addnum A logical value indicating whether to generate a numeric pedigree. Default is TRUE, which adds \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns to the output.
-#' @param inbreed A logical value indicating whether to calculate inbreeding coefficients. Default is FALSE. If TRUE, an \strong{f} column is added to the output.
+#' @param inbreed A logical value indicating whether to calculate inbreeding coefficients. Default is FALSE. If TRUE, an \strong{f} column is added to the output. This uses the same optimized engine as \code{pedmat(..., method = "f")}.
+#' @param genmethod A character value specifying the generation assignment method: "\strong{top}" or "\strong{bottom}". "top" (top-aligned) assigns generations from parents to offspring, starting founders at Gen 1. "bottom" (bottom-aligned) assigns generations from offspring to parents, aligning terminal nodes at the bottom. Default is "top".
 #' @param ... Additional arguments passed to \code{\link{inbreed}}.
 #' 
-#' @return A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{f} column is included if \code{inbreed} is TRUE.
+#' @return A \code{tidyped} object (which inherits from \code{data.table}). Individual, sire, and dam ID columns are renamed to \strong{Ind}, \strong{Sire}, and \strong{Dam}. Missing parents are replaced with \strong{NA}. The \strong{Sex} column contains "male", "female", or NA. The \strong{Cand} column is included if \code{cand} is not NULL. The \strong{Gen} column is included if \code{addgen} is TRUE. The \strong{IndNum}, \strong{SireNum}, and \strong{DamNum} columns are included if \code{addnum} is TRUE. The \strong{Family} and \strong{FamilySize} columns identify full-sibling families (e.g., "A x B" for offspring of sire A and dam B). The \strong{f} column is included if \code{inbreed} is TRUE.
 #' 
-#' @seealso \code{\link{summary.tidyped}}
+#' @seealso 
+#' \code{\link{summary.tidyped}} for summarizing tidyped objects
+#' \code{\link{visped}} for visualizing pedigree structure
+#' \code{\link{pedmat}} for computing relationship matrices
+#' \code{\link{vismat}} for visualizing relationship matrices
+#' \code{\link{splitped}} for splitting pedigree into connected components
+#' \code{\link{inbreed}} for calculating inbreeding coefficients
 #'
 #' @examples
 #' library(visPedigree)
@@ -56,6 +63,7 @@ tidyped <- function(ped,
                           addgen = TRUE,
                           addnum = TRUE,
                           inbreed = FALSE,
+                          genmethod = "top",
                           ...) {
   # 1. Parameter Validation
   if (missing(ped) || is.null(ped)) {
@@ -77,6 +85,11 @@ tidyped <- function(ped,
   if (length(trace) != 1 || !trace %in% valid_trace) {
     stop(sprintf("The trace parameter must be one of: %s", paste(valid_trace, collapse = ", ")))
   }
+
+  valid_genmethod <- c("top", "bottom")
+  if (length(genmethod) != 1 || !genmethod %in% valid_genmethod) {
+    stop(sprintf("The genmethod parameter must be one of: %s", paste(valid_genmethod, collapse = ", ")))
+  }
   
   if (!is.null(tracegen)) {
     if (!is.numeric(tracegen) || length(tracegen) != 1 || is.na(tracegen) || !is.finite(tracegen)) {
@@ -94,7 +107,6 @@ tidyped <- function(ped,
   # We need the graph for cycle detection and tracing
   graph_res <- build_ped_graph(ped_dt)
   g <- graph_res$g
-  node_map <- graph_res$node_map # Keep if needed for debugging or advanced mapping
   
   # 4. Cycle Detection
   check_ped_loops(g)
@@ -113,8 +125,106 @@ tidyped <- function(ped,
   # We need topo_order for sorting even if addgen=FALSE
   topo_order <- as.integer(topo_sort(g))
   
+  # 6.5. Pre-calculate Family (moved from step 8.5) to assist generation assignment
+  # Create family identifier based on parent combination
+  ped_dt[, Family := ifelse(
+    !is.na(Sire) & !is.na(Dam),
+    paste0(Sire, "x", Dam),
+    NA_character_
+  )]
+  
+  # Calculate family sizes
+  ped_dt[, FamilySize := .N, by = Family]
+  # Individuals without both parents have FamilySize = 1
+  ped_dt[is.na(Family), FamilySize := 1L]
+  
   if (addgen) {
-    ped_dt <- assign_ped_generations(g, ped_dt, topo_order)
+    ped_dt <- assign_ped_generations(g, ped_dt, topo_order, genmethod)
+    
+    # Optimization for bottom-up method:
+    # 1. Align full siblings to the same generation (the highest/minimum Gen among them)
+    # This prevents leaves (individuals with no progeny) from dropping to the bottom
+    # when they have siblings who are parents of deep lineages.
+    if (genmethod == "bottom") {
+      ped_dt[!is.na(Family), Gen := min(Gen), by = Family]
+      
+      # 2. Align mates to the same generation
+      # If Sire and Dam have different generations, align them to the earlier (min) generation.
+      # This ensures pedigree plots look cleaner with horizontal mating lines.
+      # We iterate this until stability or max depth 
+      # (usually one pass is sufficient for most cases, but overlapping generations might need more).
+      # But for speed, we do a single efficient pass that should catch the 'I' vs 'H' case.
+      
+      # We need to lookup mate generations. Join self to self on Sire/Dam.
+      # Create a small lookup table of Ind -> Gen
+      # Using match() is fast.
+      
+      # Iterate a few times to propagate changes.
+      # For standard pedigrees, 1 or 2 passes cover the "mate alignment".
+      # Using a while loop with a safe maximum to handle deep recursive alignments
+      iter <- 0
+      max_iter <- 10
+      repeat {
+        iter <- iter + 1
+        # Get generations of parents for every individual
+        sire_gen <- ped_dt$Gen[match(ped_dt$Sire, ped_dt$Ind)]
+        dam_gen <- ped_dt$Gen[match(ped_dt$Dam, ped_dt$Ind)]
+        
+        # Identify families where SireGen != DamGen (and both exist)
+        valid_mask <- !is.na(sire_gen) & !is.na(dam_gen) & (sire_gen != dam_gen)
+        
+        if (!any(valid_mask) || iter > max_iter) break
+        
+        # Get the target maximum generation for each mismatched couple
+        # We push the "older/higher" parent DOWN to the "younger/lower" parent's generation.
+        # This is safe from parent constraints (moving away from parents), but risky for child constraints.
+        target_gen <- pmax(sire_gen[valid_mask], dam_gen[valid_mask])
+        
+        # Collect updates needed: (Ind, NewGen)
+        sires_to_upd <- ped_dt$Sire[valid_mask]
+        dams_to_upd <- ped_dt$Dam[valid_mask]
+        
+        upd_dt <- data.table(
+          Ind = c(sires_to_upd, dams_to_upd),
+          NewGen = c(target_gen, target_gen)
+        )
+        
+        # Resolve multiple updates (take max to go deeper)
+        upd_dt <- upd_dt[, .(NewGen = max(NewGen)), by = Ind]
+        
+        # Constraint check: Individuals cannot move down if they hit their children.
+        # NewGen must be < Min(ChildGen).
+        inds_vec <- upd_dt$Ind
+        relevant_kids <- ped_dt[Sire %in% inds_vec | Dam %in% inds_vec, 
+                                .(Sire, Dam, Gen)]
+        
+        limits <- rbind(
+          relevant_kids[Sire %in% inds_vec, .(Ind=Sire, Limit=Gen)],
+          relevant_kids[Dam %in% inds_vec, .(Ind=Dam, Limit=Gen)]
+        )[, .(Limit = min(Limit)), by = Ind]
+        
+        limit_vals <- limits$Limit[match(upd_dt$Ind, limits$Ind)]
+        
+        curr_gen <- ped_dt$Gen[match(upd_dt$Ind, ped_dt$Ind)]
+        
+        # Valid only if pushing down (New > Curr) AND valid against children
+        to_change <- (upd_dt$NewGen > curr_gen) & (is.na(limit_vals) | upd_dt$NewGen < limit_vals)
+        
+        if(any(to_change)) {
+           update_inds <- upd_dt$Ind[to_change]
+           update_gens <- upd_dt$NewGen[to_change]
+           ped_dt[Ind %in% update_inds, Gen := update_gens[match(Ind, update_inds)]]
+        } else {
+           break
+        }
+      }
+      
+      # Final Sibling Alignment check:
+      # Mate alignment might have pushed one sibling down (away from others) to match a mate.
+      # But Sibling Consistency (P1) > Mate Consistency (P2). 
+      # So we enforce sibling alignment again.
+      ped_dt[!is.na(Family), Gen := min(Gen), by = Family]
+    }
   }
   
   # 7. Sex Inference and Check
@@ -190,14 +300,17 @@ validate_and_prepare_ped <- function(ped) {
     stop("Fatal error: Duplicate Ind IDs with different parents found!")
   }
 
-  # Bisexual parent check
+  # Sex conflict check: same individual appears as both sire and dam
   sires <- unique(ped_dt[!is.na(Sire), Sire])
   dams <- unique(ped_dt[!is.na(Dam), Dam])
   bisexual_parents <- sort(intersect(sires, dams))
   
   if (length(bisexual_parents) > 0) {
-    warning(paste("Bisexual individuals found (both Sire and Dam):", 
-                  paste(bisexual_parents, collapse = ", ")))
+    stop(sprintf(
+      paste0("Sex conflict detected: The following individual(s) appear as both Sire and Dam: %s. ",
+             "This is biologically impossible. Please check and correct the pedigree data."),
+      paste(bisexual_parents, collapse = ", ")
+    ), call. = FALSE)
   }
 
   # Add missing founders
@@ -216,13 +329,15 @@ validate_and_prepare_ped <- function(ped) {
 #' @noRd
 build_ped_graph <- function(ped_dt) {
   node_names <- ped_dt$Ind
-  node_map <- setNames(seq_along(node_names), node_names)
   
-  # Edges
-  s_edges <- ped_dt[!is.na(Sire), .(from = node_map[Sire], to = node_map[Ind])]
-  d_edges <- ped_dt[!is.na(Dam), .(from = node_map[Dam], to = node_map[Ind])]
+  # Use match() instead of named vector lookup for speed
+  s_from <- match(ped_dt$Sire[!is.na(ped_dt$Sire)], node_names)
+  s_to <- which(!is.na(ped_dt$Sire))
   
-  edge_mat <- as.matrix(rbind(s_edges, d_edges))
+  d_from <- match(ped_dt$Dam[!is.na(ped_dt$Dam)], node_names)
+  d_to <- which(!is.na(ped_dt$Dam))
+  
+  edge_mat <- matrix(c(s_from, d_from, s_to, d_to), ncol = 2)
   
   # Using graph_from_edgelist is faster usually
   g <- graph_from_edgelist(edge_mat, directed = TRUE)
@@ -235,7 +350,7 @@ build_ped_graph <- function(ped_dt) {
   
   V(g)$name <- node_names
   
-  list(g = g, node_map = node_map)
+  list(g = g)
 }
 
 #' Check for Cycles/Loops in Pedigree
@@ -348,109 +463,36 @@ trace_ped_candidates <- function(g, ped_dt, cand, trace, tracegen) {
 #' @param g An igraph object representing the pedigree.
 #' @param ped_dt A data.table containing the pedigree.
 #' @param topo_order Integer vector specifying the topological order of vertices.
+#' @param genmethod Character, "top" or "bottom".
 #' @return A data.table with a \strong{Gen} column added.
 #' @noRd
-assign_ped_generations <- function(g, ped_dt, topo_order) {
-  # 1. Height Calculation (Bottom-Up Logic)
+assign_ped_generations <- function(g, ped_dt, topo_order, genmethod) {
+  # Get numeric parents for C++ (1-based, 0 for missing)
+  # Pedigree is already complete (missing founders added)
+  inds <- ped_dt$Ind
+  sire_num <- match(ped_dt$Sire, inds, nomatch = 0)
+  dam_num <- match(ped_dt$Dam, inds, nomatch = 0)
   
-  # Optimization: Skip nodes with no parents (In-Degree 0)
+  if (genmethod == "top") {
+    gen_vec <- cpp_assign_generations_top(sire_num, dam_num, as.integer(topo_order))
+  } else {
+    gen_vec <- cpp_assign_generations_bottom(sire_num, dam_num, as.integer(topo_order))
+  }
+  
+  # Isolated nodes check
   in_deg <- degree(g, mode = "in")
-  has_parents_mask <- in_deg[topo_order] > 0
-  
-  rev_topo_proc <- rev(topo_order[has_parents_mask])
-  
-  height_vec <- rep(0L, vcount(g))
-  adj_list_in <- as_adj_list(g, mode = "in")
-  
-  for (v_idx in rev_topo_proc) {
-    parents <- adj_list_in[[v_idx]]
-    p_indices <- as.integer(parents)
-    prior_h <- height_vec[p_indices]
-    new_h <- height_vec[v_idx] + 1L
-    height_vec[p_indices] <- pmax(prior_h, new_h)
+  out_deg <- degree(g, mode = "out")
+  iso_mask <- (in_deg == 0) & (out_deg == 0)
+  if (any(iso_mask)) {
+    # Match iso_mask (which is in graph order) to ped_dt order
+    # topo_order is a permutation of 1:vcount(g)
+    # The C++ gen_vec is in the same order as sire_num/dam_num, which is ped_dt order
+    # BUT wait, the graph g was built from ped_dt. So V(g)$name is ped_dt$Ind.
+    # So vertex i in the graph corresponds to row i in ped_dt.
+    gen_vec[iso_mask] <- 0L
   }
   
-  # 2. Align Full Siblings
-  # Identify individuals who have at least one parent
-  h_dt <- data.table(
-    Ind = V(g)$name,
-    Height = height_vec,
-    Sire = ped_dt$Sire[match(V(g)$name, ped_dt$Ind)],
-    Dam = ped_dt$Dam[match(V(g)$name, ped_dt$Ind)]
-  )
-  
-  non_orphans <- h_dt[!is.na(Sire) | !is.na(Dam)]
-  
-  if (nrow(non_orphans) > 0) {
-    non_orphans[, MaxH := max(Height), by = .(Sire, Dam)]
-    update_inds <- non_orphans[MaxH > Height]
-    if (nrow(update_inds) > 0) {
-      update_indices <- match(update_inds$Ind, V(g)$name)
-      height_vec[update_indices] <- update_inds$MaxH
-    }
-  }
-  
-  gen_map_height <- setNames(height_vec, V(g)$name)
-  founders <- names(which(degree(g, mode = "in") == 0))
-  
-  if (length(founders) > 0) {
-    pairs_dt <- unique(ped_dt[!is.na(Sire) & !is.na(Dam), .(Sire, Dam)])
-    
-    if (nrow(pairs_dt) > 0) {
-      pairs_dt[, SireH := gen_map_height[Sire]]
-      pairs_dt[, DamH := gen_map_height[Dam]]
-      
-      updates <- list()
-      
-      fs_mask <- pairs_dt$Sire %in% founders & pairs_dt$SireH < pairs_dt$DamH
-      if (any(fs_mask)) {
-        updates$sires <- pairs_dt[fs_mask, .(MaxMateH = max(DamH)), by = Sire]
-      }
-      
-      fd_mask <- pairs_dt$Dam %in% founders & pairs_dt$DamH < pairs_dt$SireH
-      if (any(fd_mask)) {
-        updates$dams <- pairs_dt[fd_mask, .(MaxMateH = max(SireH)), by = Dam]
-      }
-      
-      if (!is.null(updates$sires)) {
-        gen_map_height[updates$sires$Sire] <- updates$sires$MaxMateH
-      }
-      if (!is.null(updates$dams)) {
-        gen_map_height[updates$dams$Dam] <- updates$dams$MaxMateH
-      }
-      
-      height_vec <- gen_map_height
-    }
-  }
-  
-  # 3. Propagate Height Down (Parent -> Child)
-  # Enforce Child H >= min(Parent H) - 1
-  topo_proc <- topo_order[has_parents_mask]
-  
-  for (v_idx in topo_proc) {
-    parents <- adj_list_in[[v_idx]]
-    p_indices <- as.integer(parents)
-    p_heights <- height_vec[p_indices]
-    
-    min_p_h <- min(p_heights)
-    if (min_p_h - 1L > height_vec[v_idx]) {
-      height_vec[v_idx] <- min_p_h - 1L
-    }
-  }
-  
-  gen_map_height <- setNames(height_vec, V(g)$name)
-  max_h <- if (length(gen_map_height)>0) max(gen_map_height) else 0
-  final_gens <- max_h - gen_map_height + 1L
-  
-  # Identify isolated vertices (no parents, no offspring) and assign Gen 0
-  # This matches legacy behavior and allows visped to filter them out
-  iso_nodes <- names(which(degree(g, mode = "all") == 0))
-  if (length(iso_nodes) > 0) {
-    final_gens[iso_nodes] <- 0L
-  }
-  
-  ped_dt[, Gen := final_gens[match(Ind, names(final_gens))]]
-  
+  ped_dt[, Gen := gen_vec]
   return(ped_dt)
 }
 
@@ -467,10 +509,18 @@ infer_and_check_sex <- function(ped_dt) {
   sires <- unique(ped_dt[!is.na(Sire), Sire])
   dams <- unique(ped_dt[!is.na(Dam), Dam])
   
-  # Sex conflict check
+  # Note: Sex conflict (same individual as both Sire and Dam) is already checked 
+  # in validate_and_prepare_ped() earlier in the pipeline
+  
+  # Sex conflicts with explicit sex annotation
   sex_conflicts <- ped_dt[(Ind %in% sires & Sex == "female") | (Ind %in% dams & Sex == "male"), Ind]
   if (length(sex_conflicts) > 0) {
-    warning("Potential sex conflicts detected for individuals: ", paste(sex_conflicts, collapse = ", "))
+    stop(sprintf(
+      paste0("Sex annotation conflicts detected for: %s. ",
+             "These individuals have explicit sex that contradicts their role as Sire/Dam. ",
+             "Please check and correct the pedigree data."),
+      paste(sex_conflicts, collapse = ", ")
+    ), call. = FALSE)
   }
   
   # Infer sex from roles

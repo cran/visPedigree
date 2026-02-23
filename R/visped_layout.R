@@ -74,7 +74,7 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
   max_layer <- max(ped_igraph$node$layer, na.rm = TRUE)
   
   # Create a minimal graph for layout calculation to save memory and time
-  g_layout <- graph_from_data_frame(ped_igraph$edge[, .(from, to)], directed = TRUE)
+  g_layout <- graph_from_data_frame(ped_igraph$edge[, .(from, to)], directed = TRUE, vertices = ped_igraph$node[, .(id)])
   # match names to get layers - V(g_layout)$name exists by default from graph_from_data_frame
   layer_idx <- ped_igraph$node$layer[match(v_names <- V(g_layout)$name, as.character(ped_igraph$node$id))]
   layer_idx <- max_layer - layer_idx + 1
@@ -108,9 +108,9 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
         current_nodes[is.na(familylabel), familylabel := paste0("u_", id)]
       }
       
-      parent_coords <- real_node[, .(label, px = x)]
-      current_nodes[parent_coords, on = .(sirelabel = label), sire_x := i.px]
-      current_nodes[parent_coords, on = .(damlabel = label), dam_x := i.px]
+      parent_coords <- real_node[, .(Ind, px = x)]
+      current_nodes[parent_coords, on = .(sirelabel = Ind), sire_x := i.px]
+      current_nodes[parent_coords, on = .(damlabel = Ind), dam_x := i.px]
       current_nodes[, parent_mid := rowMeans(.SD, na.rm = TRUE), .SDcols = c("sire_x", "dam_x")]
       current_nodes[is.na(parent_mid), parent_mid := x]
       
@@ -166,6 +166,8 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
     virtual_node[real_family_min_x, x := i.minx, on = .(gen, familylabel)]
   }
   ped_igraph$node[nodetype %in% c("virtual")] <- virtual_node
+
+  # Update layout matrix with adjusted x coordinates for correct canvas width calculation
   l[, 1] <- ped_igraph$node[, x]
 
   s_size <- if (!is.null(symbolsize)) symbolsize else 1

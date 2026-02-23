@@ -1,3 +1,64 @@
+# Changes in version 1.0.1 released on 31 Jan 2026
+## Bug fixes
+1. **Compact Matrix Correctness**: Fixed a critical data integrity bug in `compact = TRUE` mode where relationship values (A, D, AA) were incorrect for parent-offspring and avuncular pairs due to improper merging of parent individuals with their non-parent siblings.
+2. **Pedigree Compression Strategy**: Updated compaction logic to preserve original genetic identity of any individual that appears as a sire or dam, ensuring parents always have unique entries in the relationship matrix.
+3. **Sibling Row/Column Expansion**: Fixed `expand_pedmat()` to correctly handle sibling off-diagonal elements by dynamically calculating relationship values based on parent kinship, rather than simply duplicating representative diagonal values.
+4. **Generation Alignment Logic**: Fixed `tidyped(..., genmethod = "bottom")` to prioritize **Sibling Consistency** (P1) over **Mate Alignment** (P2). This ensures that full siblings are always aligned to the same generation.
+5. **`visped()` edge highlighting**: Fixed edge highlighting logic so relationship edges are only emphasized when `trace` is used.
+6. **Shared-parent/shared-child paths**: Corrected edge highlighting for cases where a parent has multiple families or a family has multiple children.
+7. **`visped()` layout**: Fixed layout optimization failure when `showf = TRUE`. The layout algorithm now correctly uses immutable individual IDs.
+
+# Changes in version 1.0.0 released on 24 Jan 2026
+## API Standardization (BREAKING)
+To provide a clean and intuitive API for v1.0.0, core function names and behaviors have been standardized:
+- **`pedmatrix`** is renamed to **`pedmat`**.
+- **`pedmat` default `method` is now `"A"`** (Additive Relationship Matrix). Previously it was `"f"` (Inbreeding Coefficients).
+- **`expand_pedmatrix`** is renamed to **`expand_pedmat`**.
+- **`summary_pedmatrix`** is renamed to **`summary_pedmat`**.
+- The parameter **`n_threads`** is standardized to **`threads`** across all functions.
+- Legacy function names (`pedmatrix`, etc.) have been removed. Please use `pedmat()` directly.
+
+## New Features
+1. **Family Assignment and Summary**: 
+    - `tidyped()` now automatically assigns and includes a `Family` column, identifying full-sib groups.
+    - `summary.tidyped()` has been updated to provide family statistics (count, sizes, top largest families) and richer offspring analysis.
+2. **Pedigree Splitting (`splitped`)**: Added `splitped()` function to detect and split disconnected pedigree components. It efficiently identifies independent sub-populations (connected components) using graph theory, excludes isolated individuals, and returns a list of re-indexed `tidyped` objects ready for separate analysis or visualization.
+3. **Comprehensive Matrix Support**: `pedmat()` (formerly `pedmatrix`) now fully supports 6 types of genetic relationship matrices: Additive (A, Ainv), Dominance (D, Dinv), and Additive-by-Additive Epistatic (AA, AAinv).
+4. **Relationship Matrix Visualization (`vismat`)**: Added `vismat()` function for visualizing relationship matrices (A, D, AA, etc.) with heatmaps and histograms. It supports `pedmat` objects, `tidyped` objects (auto-calculates A matrix), and standard matrices. Heatmaps can be annotated with family groups when a pedigree is provided.
+
+## CRAN Submission & Internal Improvements
+This release marks the first stable version 1.0.0, polished for CRAN.
+
+1.  **Portable Compilation**: Standardized `src/Makevars` for cross-platform compatibility (removed GNU/platform-specific extensions).
+2.  **Dependencies**: Moved `RcppArmadillo` to `LinkingTo` to optimize package structure.
+3.  **Documentation & S3**: Fixed `vignette` generation, resolved `diag` S3 method dispatch, and cleaned up documentation for CRAN compliance.
+
+# Changes in version 0.7.3 released on 13 Jan 2026
+## New behavior (BREAKING)
+1. **Simplified `pedmatrix()` return and single-method enforcement**: `pedmatrix()` now requires a single `method` argument (e.g., `method = "A").` When a single method is requested, the function returns the corresponding matrix or vector directly (not a named list). Requesting multiple methods in one call will now raise an error. Use repeated calls for multiple outputs.
+
+## New features
+1. **High-Performance Genetic Relationship Calculations**: Introduced `pedmatrix()` function implemented in Rcpp for efficient computation of:
+    - Additive relationship matrix (A) using the tabular recursive algorithm.
+    - Sparse inverse additive matrix (A-Inverse) using Henderson's rules.
+    - Dominance matrix (D) using the tabular approach.
+    - Inbreeding coefficients (f) using the Meuwissen & Luo (1992) path-tracing algorithm.
+
+## Improvements
+1. **Default Inbreeding Calculation Method**: The `inbreed()` function now uses the native Rcpp implementation by default, moving the `nadiv` package to `Suggests`.
+2. **Documentation and Website**: Updated package documentation and vignettes to reflect new features and improvements. The official package website is available at [https://luansheng.github.io/visPedigree/](https://luansheng.github.io/visPedigree/).
+
+# Changes in version 0.7.2 released on 12 Jan 2026
+## New features
+1. **Flexible Generation Assignment**: Added `genmethod` parameter to `tidyped()`. Users can now choose between `"top"` (top-aligned, default) and `"bottom"` (bottom-aligned) methods for generation inference. 
+    - The `"top"` method aligns founders at Generation 1, which is more appropriate for biological pedigrees and prevents "founder drift" in pedigrees with varying depths.
+    - The `"bottom"` method aligns terminal nodes at the bottom, useful for visualizing introductions of unrelated exogenous parents.
+
+## Improvements
+1. **Default Logic Change**: Switched the default generation assignment method to `"top"` (top-down) for more intuitive biological visualization.
+2. **Pkgdown Documentation**: Generated and published the official package website at [https://luansheng.github.io/visPedigree/](https://luansheng.github.io/visPedigree/).
+3. **Automated CI/CD**: Added GitHub Actions workflow for automatic documentation updates and deployment via GitHub Pages.
+
 # Changes in version 0.7.1 released on 11 Jan 2026
 ## Performance optimizations
 1. **Large Pedigree Performance**: Optimized `visped` performance for displaying large pedigrees through efficient attribute handling and vectorized rendering. Computation time for 100k+ individuals reduced significantly by avoiding redundant `igraph` attribute lookups.
@@ -57,39 +118,35 @@
 3. Fixed `R CMD check` notes related to `data.table` non-standard evaluation by adding `R/globals.R`.
 
 # Changes in version 0.4.1 released on 25 Dec 2025
+## Bug fixes
+1. Fixed overlapping edge detection for small pedigree graphs.
+2. Improved coloring consistency for compact mode.
 
 # Changes in version 0.2.6 released on 31 Mar 2020
-## New features
 ## Bug fixes
 1. Fixed a bug that the number of generations for candidates would be traced to n+1 when tracegen=n. This bug is found by Mianyu Liu.
 
 # Changes in version 0.2.5 released on 25 Feb 2020
-## New features
 ## Bug fixes
 1. The tidyped() does not work with trace='all' in [certain cases](https://github.com/luansheng/visPedigree/issues/2#issue-568599008)
 
 # Changes in version 0.2.4.1 released on 24 Feb 2020
-## New features
 ## Bug fixes
 1. An unexpected column with the name as NA occured when a tidyped object is tidyed again using the tidyped()
 
 # Changes in version 0.2.4 released on 12 June 2019
-## New features
 ## Bug fixes
 1. The data.table used as the input parameter 'ped' may be changed in tidyped() and visped().
 
-
 # Changes in version 0.2.3 released on 05 Mar 2019
-## New features
 ## Bug fixes
 1. The generation number of individuals is not inferred rightly.
 
 # Changes in version 0.2.2 released on 28 Jan 2019
-## New features
 ## Bug fixes
 1. The tidied pedigree will not include the candidates which are not in the Ind column of the origin pedigree when the cand parameter is not NULL.
 
 # Changes in version 0.2.1 released on 17 Nov 2018
-## New features
 ## Bug fixes
 1. Repel the overlapping nodes due to very small differences (digits > 7) among x positions of nodes
+

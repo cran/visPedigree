@@ -1,33 +1,36 @@
 Package: visPedigree
 Type: Package
 Title: Tidying and Visualizing Animal Pedigrees
-Version: 0.7.1
+Version: 1.0.1
 Authors@R: person("Sheng","Luan", email="luansheng@gmail.com", role = c("aut","cre"))
 Description: Built on graph theory and the high-performance 'data.table' framework, 
-    this package provides a comprehensive suite of tools for tidying, pruning, 
+    this package provides a comprehensive suite of tools for tidying, analyzing, 
     and visualizing animal pedigrees. By modeling pedigrees as directed acyclic 
     graphs using 'igraph', it ensures robust loop detection, efficient 
-    generation assignment, and sophisticated hierarchical layouts. Key features 
+    generation assignment, and optimal sub-population splitting. Key features 
     include standardizing pedigree formats, flexible ancestry tracing, and 
     generating legible vector-based PDF graphs. A unique compaction algorithm 
-    enables the visualization of massive pedigrees (e.g., in aquaculture 
-    selective breeding population) by grouping full-sib families, maintaining structural 
-    clarity without overcrowding.
+    enables the visualization of massive pedigrees by grouping full-sib families. 
+    Furthermore, the package implements high-performance C++ algorithms for 
+    calculating and visualizing genetic relationship matrices (A, D, AA, and 
+    their inverses) and inbreeding coefficients.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Depends: R (>= 4.1.0)
-Imports: data.table (>= 1.14.0), igraph (>= 1.3.0), nadiv (>= 2.18.0)
-RoxygenNote: 7.3.3
-Suggests: testthat (>= 3.0.0), knitr, rmarkdown, devtools
+Imports: data.table (>= 1.14.0), igraph (>= 1.3.0), Matrix, Rcpp,
+        lattice
+LinkingTo: Rcpp, RcppArmadillo
+Suggests: nadiv (>= 2.18.0), testthat (>= 3.0.0), knitr, rmarkdown
 URL: https://github.com/luansheng/visPedigree,
         https://luansheng.github.io/visPedigree/
 BugReports: https://github.com/luansheng/visPedigree/issues
 VignetteBuilder: knitr
 Config/testthat/edition: 3
-NeedsCompilation: no
-Packaged: 2026-01-16 13:43:11 UTC; luansheng
+RoxygenNote: 7.3.3
+NeedsCompilation: yes
+Packaged: 2026-02-23 04:49:51 UTC; luansheng
 Author: Sheng Luan [aut, cre]
 Maintainer: Sheng Luan <luansheng@gmail.com>
 Repository: CRAN
-Date/Publication: 2026-01-21 20:10:03 UTC
+Date/Publication: 2026-02-23 08:30:02 UTC

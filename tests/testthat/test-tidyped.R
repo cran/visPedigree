@@ -100,8 +100,9 @@ test_that("4. Generation Alignment Logic", {
   # Founder E mates with C.
   # Gen 3: D (Child of C, E)
   
-  # Standard expectation: E is Founder -> Gen 1?
-  # Heuristic expectation: E aligns to Mate C -> E becomes Gen 2. D becomes Gen 3.
+  # Standard behavior: Founders (no parents) get Gen 1
+  # E is a founder, so E gets Gen 1
+  # D is child of C (Gen 2) and E (Gen 1), so D gets max(parent_gen) + 1 = Gen 3
   
   ped_align <- data.table(
     Ind = c("A", "B", "C", "D", "E"),
@@ -113,9 +114,9 @@ test_that("4. Generation Alignment Logic", {
   setkey(res, Ind)
   
   expect_equal(res["C", Gen], 2)
-  # E should adhere to Mate's generation (2)
-  expect_equal(res["E", Gen], 2)
-  # D is child of Gen 2 x Gen 2 -> Gen 3
+  # E is a founder (no parents), so E gets Gen 1 (standard behavior)
+  expect_equal(res["E", Gen], 1)
+  # D is child of C (Gen 2) and E (Gen 1) -> Gen 3
   expect_equal(res["D", Gen], 3)
 })
 
@@ -125,8 +126,8 @@ test_that("5. Sibling Alignment (Full Sibs)", {
   # Gen 2: C1 (P1xP2)
   # Gen 3: G3 (Child of C1)
   # C2 is full sib of C1 (P1xP2). C2 has no progeny. 
-  # Without alignment, C2 might fall to bottom or stay high?
-  # With Sibling/Height logic, C2 matches C1.
+  # Without alignment, C2 might fall to bottom (Gen 3) in bottom-up mode
+  # With Sibling/Height logic, C2 matches C1 (Gen 2).
   
   ped_sibs <- data.table(
     Ind = c("P1", "P2", "C1", "C2", "G3"),
@@ -134,12 +135,17 @@ test_that("5. Sibling Alignment (Full Sibs)", {
     Dam  = c(NA, NA, "P2", "P2", NA)
   )
   
-  res <- tidyped(ped_sibs)
-  setkey(res, Ind)
+  # Default (top)
+  res_top <- tidyped(ped_sibs, genmethod = "top")
+  setkey(res_top, Ind)
+  expect_equal(res_top["C1", Gen], res_top["C2", Gen], info = "Top mode: Siblings aligned")
   
-  gen_c1 <- res["C1", Gen]
-  gen_c2 <- res["C2", Gen]
-  expect_equal(gen_c1, gen_c2)
+  # Bottom-up
+  res_bottom <- tidyped(ped_sibs, genmethod = "bottom")
+  setkey(res_bottom, Ind)
+  expect_equal(res_bottom["C1", Gen], 2, info = "Bottom mode: C1 Gen")
+  expect_equal(res_bottom["C2", Gen], 2, info = "Bottom mode: C2 aligned with C1")
+  expect_equal(res_bottom["G3", Gen], 3, info = "Bottom mode: G3 Gen")
 })
 
 test_that("6. Tracing Up/Down", {

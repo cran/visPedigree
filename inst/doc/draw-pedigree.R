@@ -1,37 +1,41 @@
 ## ----setup, include = FALSE---------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.width = 6.5,
+  fig.height = 6.5,
+  dpi = 300,
+  out.width = "100%"
 )
 library(visPedigree)
 
-## ----smallped, fig.width=6.5, fig.height=6.5, fig.show="hold"-----------------
+## ----smallped, fig.show="hold"------------------------------------------------
 tidy_small_ped <-
   tidyped(ped = small_ped,
           cand = c("Y", "Z1", "Z2"))
 visped(tidy_small_ped, compact = TRUE, file = tempfile(fileext = ".pdf"))
 
-## ----vissimpleped,  fig.width=6.5, fig.height=6.5, fig.show="hold"------------
+## ----vissimpleped, fig.show="hold"--------------------------------------------
 tidy_simple_ped <- tidyped(simple_ped)
-visped(tidy_simple_ped)
+visped(tidy_simple_ped, cex=0.3, symbolsize=10)
 
 ## -----------------------------------------------------------------------------
 suppressMessages(visped(tidy_simple_ped, showgraph = FALSE, file = tempfile(fileext = ".pdf")))
 
-## ----highlight1, fig.width=6.5, fig.height=6.5--------------------------------
+## ----highlight1---------------------------------------------------------------
 visped(tidyped(small_ped), highlight = c("Y", "Z1"))
 
-## ----highlight_trace, fig.width=6.5, fig.height=6.5---------------------------
+## ----highlight_trace----------------------------------------------------------
 # Highlight individual "Y" and all its ancestors and descendants
 visped(tidyped(small_ped), highlight = "Y", trace = TRUE)
 
-## ----highlight2, fig.width=6.5, fig.height=6.5--------------------------------
+## ----highlight2---------------------------------------------------------------
 visped(tidyped(small_ped), 
        highlight = list(ids = c("Y", "Z1"), 
                         frame.color = "#4caf50", 
                         color = "#81c784"))
 
-## ----showinbreed, fig.width=6.5, fig.height=6.5-------------------------------
+## ----showinbreed--------------------------------------------------------------
 library(data.table)
 test_ped <- data.table(
   Ind = c("A", "B", "C", "D", "E"),
@@ -44,9 +48,15 @@ visped(tidy_test_ped_inbreed, showf = TRUE)
 
 ## ----deepped, eval=FALSE------------------------------------------------------
 # cand_J11_labels <- deep_ped[(substr(Ind, 1, 3) == "K11"), Ind]
-# visped(tidyped(deep_ped, cand = cand_J11_labels, tracegen = 3))
+# visped(
+#   tidyped(deep_ped,
+#     cand = cand_J11_labels,
+#     tracegen = 3),
+#   cex=0.08,
+#   symbolsize=5.5
+#   )
 
-## ----reduceped1, fig.width=6.5, fig.height=6.5--------------------------------
+## ----reduceped1---------------------------------------------------------------
 cand_J11_labels <- deep_ped[(substr(Ind,1,3) == "K11"),Ind]
 visped(
   tidyped(
@@ -55,12 +65,14 @@ visped(
     trace = "up",
     tracegen = 3
   ),
+  cex=0.08, 
+  symbolsize=5.5,
   compact = TRUE,
   showgraph = TRUE,
   file = tempfile(fileext = ".pdf")
 )
 
-## ----reduceped2, fig.width=6.5, fig.height=6.5--------------------------------
+## ----reduceped2---------------------------------------------------------------
 visped(
   tidyped(
     deep_ped,
@@ -74,7 +86,7 @@ visped(
   file = tempfile(fileext = ".pdf")
 )
 
-## ----reduceped3, fig.width=6.5, fig.height=6.5--------------------------------
+## ----reduceped3---------------------------------------------------------------
 suppressMessages(visped(
   tidyped(
     deep_ped,
@@ -86,12 +98,15 @@ suppressMessages(visped(
   file = tempfile(fileext = ".pdf")
 ))
 
-## ----pedofoneind, fig.width=6.5, fig.height=6.5-------------------------------
-suppressWarnings(J110550G_ped <-
-                   tidyped(deep_ped, cand = "K110550H"))
-suppressMessages(visped(J110550G_ped, showgraph = TRUE, file = tempfile(fileext = ".pdf")))
+## ----pedofoneind--------------------------------------------------------------
+suppressWarnings(
+  K110550H_ped <- tidyped(deep_ped, cand = "K110550H")
+)
+if(interactive()) {
+  visped(K110550H_ped, compact = TRUE)
+}
 
-## ----optiMate, fig.width=6.5, fig.height=6.5----------------------------------
+## ----optiMate-----------------------------------------------------------------
 cand_2007_G8_labels <-
   big_family_size_ped[(Year == 2007) & (substr(Ind, 1, 2) == "G8"), Ind]
 suppressWarnings(

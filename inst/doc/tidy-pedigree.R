@@ -1,7 +1,11 @@
 ## ----setup, include = FALSE---------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.width = 6.5,
+  fig.height = 6.5,
+  dpi = 96,
+  out.width = "100%"
 )
 library(visPedigree)
 
@@ -17,10 +21,12 @@ nrow(simple_ped)
 simple_ped[Sire %in% c("0", "*", "NA", NA) |
              Dam %in% c("0", "*", "NA", NA)]
 
-## -----------------------------------------------------------------------------
+## ----error=TRUE---------------------------------------------------------------
+try({
 x <- data.table::copy(simple_ped)
 x[ID == "J2F588", Sire := "J0Z167"]
 y <- tidyped(x)
+})
 
 ## ----tidyped------------------------------------------------------------------
 tidy_simple_ped <- tidyped(simple_ped)
@@ -73,7 +79,7 @@ tidy_simple_ped_with_int <-
   tidyped(ped = tidy_simple_ped_no_gen_num, addnum = TRUE)
 head(tidy_simple_ped_with_int)
 
-## ----inbreed, fig.width=6.5, fig.height=6.5-----------------------------------
+## ----inbreed------------------------------------------------------------------
 # Create a simple inbred pedigree
 library(data.table)
 test_ped <- data.table(
@@ -89,10 +95,26 @@ head(tidy_test)
 # Option 2: Calculate after tidying
 tidy_test <- inbreed(tidyped(test_ped))
 
+## ----genmethod----------------------------------------------------------------
+# Default behavior (Top-Down): J2Y434 is at Gen 3
+tidy_top <- tidyped(simple_ped, genmethod = "top")
+tidy_top[Ind == "J2Y434"]
+
+# Bottom-Up behavior: J2Y434 is at Gen 6
+tidy_bottom <- tidyped(simple_ped, genmethod = "bottom")
+tidy_bottom[Ind == "J2Y434"]
+
 ## ----summary------------------------------------------------------------------
 # Summarize the tidied pedigree
 summary(tidy_simple_ped)
 
-# Summarize with inbreeding info
-summary(tidy_test)
+## ----splitped-----------------------------------------------------------------
+# Split the pedigree into components
+sub_pedigrees <- splitped(tidy_simple_ped)
+
+# View summary of the split result
+summary(sub_pedigrees)
+
+# Access a specific sub-pedigree
+# first_sub <- sub_pedigrees[[1]]
 

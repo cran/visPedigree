@@ -2,7 +2,7 @@
 #'
 #' A dataset containing a pedigree with many full-sib individuals per family.
 #'
-#' @format A data.table with 7 columns:
+#' @format A data.table with 8 columns:
 #' \describe{
 #'   \item{Ind}{Individual ID}
 #'   \item{Sire}{Sire ID}
@@ -44,11 +44,12 @@
 #'
 #' A small dataset containing a simple pedigree for demonstration.
 #'
-#' @format A data.table with 3 columns:
+#' @format A data.table with 4 columns:
 #' \describe{
 #'   \item{Ind}{Individual ID}
 #'   \item{Sire}{Sire ID}
 #'   \item{Dam}{Dam ID}
+#'   \item{Sex}{Sex of the individual}
 #' }
 "simple_ped"
 

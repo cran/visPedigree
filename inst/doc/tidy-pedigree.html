@@ -12,7 +12,7 @@
 
 <meta name="author" content="Sheng Luan" />
 
-<meta name="date" content="2026-01-16" />
+<meta name="date" content="2026-02-23" />
 
 <title>1. How to tidy a pedigree</title>
 
@@ -341,7 +341,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">1. How to tidy a pedigree</h1>
 <h4 class="author">Sheng Luan</h4>
-<h4 class="date">2026-01-16</h4>
+<h4 class="date">2026-02-23</h4>
 
 
 
@@ -383,13 +383,15 @@ displays. The main contents of this guide are as follows:</p>
 <li><a href="#id_2">The specification of pedigree format</a><br />
 </li>
 <li><a href="#id_3">Checking and tidying pedigree</a><br />
-3.1 <a href="#id_3.1">Introduction</a><br />
-3.2 <a href="#id_3.2">Pedigree loop detection</a><br />
-3.3 <a href="#id_3.3">Tracing the pedigree of a specific
+3.1 <a href="#id_3-1">Introduction</a><br />
+3.2 <a href="#id_3-2">Pedigree loop detection</a><br />
+3.3 <a href="#id_3-3">Tracing the pedigree of a specific
 individual</a><br />
-3.4 <a href="#id_3.4">Creating an integer pedigree</a><br />
-3.5 <a href="#id_3.5">Calculating inbreeding coefficients</a><br />
-3.6 <a href="#id_3.6">Summarizing the pedigree</a></li>
+3.4 <a href="#id_3-4">Creating an integer pedigree</a><br />
+3.5 <a href="#id_3-5">Calculating inbreeding coefficients</a><br />
+3.6 <a href="#id_3-6">Customizing generation assignment</a><br />
+3.7 <a href="#id_3-7">Summarizing the pedigree</a><br />
+3.8 <a href="#id_3-8">Splitting large pedigrees</a></li>
 </ol>
 <div id="id_1" class="section level2">
 <h2>1. Installation of the visPedigree package</h2>
@@ -413,7 +415,7 @@ columns, such as sex and generation, can also be included.</p>
 </div>
 <div id="id_3" class="section level2">
 <h2>3. Checking and tidying pedigree</h2>
-<div id="id_3.1" class="section level3">
+<div id="id_3-1" class="section level3">
 <h3>3.1 Introduction</h3>
 <p>The pedigree can be checked and tidied through the
 <code>tidyped()</code> function.</p>
@@ -475,34 +477,42 @@ bisexual conflict.</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>x <span class="ot">&lt;-</span> data.table<span class="sc">::</span><span class="fu">copy</span>(simple_ped)</span>
 <span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>x[ID <span class="sc">==</span> <span class="st">&quot;J2F588&quot;</span>, Sire <span class="sc">:=</span> <span class="st">&quot;J0Z167&quot;</span>]</span>
 <span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(x)</span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt; Warning in validate_and_prepare_ped(ped): Bisexual individuals found (both Sire</span></span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; and Dam): J0Z167</span></span></code></pre></div>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt; Error:</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; ! Sex conflict detected: The following individual(s) appear as both Sire and Dam: J0Z167. This is biologically impossible. Please check and correct the pedigree data.</span></span></code></pre></div>
 <p>The <code>tidyped()</code> function sorts the pedigree, replaces
 missing parents with <code>NA</code>, ensures parents precede their
 offspring, and adds missing founders.</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>tidy_simple_ped <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(simple_ped)</span>
 <span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="fu">head</span>(tidy_simple_ped)</span>
 <span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex   Gen IndNum SireNum DamNum</span></span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt;</span></span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt; 1: J0C032   &lt;NA&gt;   &lt;NA&gt; female     1      1       0      0</span></span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt; 2: J0C185   &lt;NA&gt;   &lt;NA&gt; female     1      2       0      0</span></span>
-<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; 3: J0C231   &lt;NA&gt;   &lt;NA&gt; female     1      3       0      0</span></span>
-<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt; 4: J0C317   &lt;NA&gt;   &lt;NA&gt;   male     1      4       0      0</span></span>
-<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; 5: J0C450   &lt;NA&gt;   &lt;NA&gt; female     1      5       0      0</span></span>
-<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; 6: J0C561   &lt;NA&gt;   &lt;NA&gt;   male     1      6       0      0</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex Family FamilySize   Gen IndNum SireNum DamNum</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt;      &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt;</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt; 1: J0C032   &lt;NA&gt;   &lt;NA&gt; female   &lt;NA&gt;          1     1      1       0      0</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt; 2: J0C185   &lt;NA&gt;   &lt;NA&gt; female   &lt;NA&gt;          1     1      2       0      0</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; 3: J0C231   &lt;NA&gt;   &lt;NA&gt; female   &lt;NA&gt;          1     1      3       0      0</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt; 4: J0C317   &lt;NA&gt;   &lt;NA&gt;   male   &lt;NA&gt;          1     1      4       0      0</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; 5: J0C355   &lt;NA&gt;   &lt;NA&gt; female   &lt;NA&gt;          1     1      5       0      0</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; 6: J0C450   &lt;NA&gt;   &lt;NA&gt; female   &lt;NA&gt;          1     1      6       0      0</span></span>
 <span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="fu">tail</span>(tidy_simple_ped)</span>
 <span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
-<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex   Gen IndNum SireNum DamNum</span></span>
-<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt;</span></span>
-<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt; 1: J1C802 J0Z333 J0C355   male     5     54      47     46</span></span>
-<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt; 2: J4E185 J3L886 J3X697 female     5     55      48     49</span></span>
-<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; 3: J4Y326 J3Y620 J3Y771   male     5     56      50     51</span></span>
-<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt; 4: J1C929 J0Z511 J0Z444   male     6     57      53     52</span></span>
-<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; 5: J2Y434 J1C802 J1H419 female     6     58      54     28</span></span>
-<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt; 6: J5X804 J4Y326 J4E185 female     6     59      56     55</span></span>
-<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="fu">nrow</span>(tidy_simple_ped)</span>
-<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a><span class="co">#&gt; [1] 59</span></span></code></pre></div>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex        Family FamilySize   Gen IndNum SireNum</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt;        &lt;char&gt;      &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt; 1: J3X697 J2Z903   &lt;NA&gt; female          &lt;NA&gt;          1     4     54      52</span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt; 2: J3Y620 J2C161 J2Z411   male J2C161xJ2Z411          1     4     55      45</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; 3: J3Y771 J2G465 J2X544 female J2G465xJ2X544          1     4     56      48</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt; 4: J4E185 J3L886 J3X697 female J3L886xJ3X697          1     5     57      53</span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; 5: J4Y326 J3Y620 J3Y771   male J3Y620xJ3Y771          1     5     58      55</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt; 6: J5X804 J4Y326 J4E185 female J4Y326xJ4E185          1     6     59      58</span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt;    DamNum</span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a><span class="co">#&gt;     &lt;int&gt;</span></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co">#&gt; 1:      0</span></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="co">#&gt; 2:     51</span></span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="co">#&gt; 3:     49</span></span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="co">#&gt; 4:     54</span></span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="co">#&gt; 5:     56</span></span>
+<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="co">#&gt; 6:     57</span></span>
+<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a><span class="fu">nrow</span>(tidy_simple_ped)</span>
+<span id="cb6-31"><a href="#cb6-31" tabindex="-1"></a><span class="co">#&gt; [1] 59</span></span></code></pre></div>
 <p>In the resulting <code>tidy_simple_ped</code>, founders are added
 with their inferred sex, and parents are sorted before their offspring.
 The number of individuals increases from 31 to 59. The columns are
@@ -519,18 +529,18 @@ automatically added to the tidied output.</p>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="fu">tidyped</span>(simple_ped, <span class="at">addgen =</span> <span class="cn">FALSE</span>, <span class="at">addnum =</span> <span class="cn">FALSE</span>)</span>
 <span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>    <span class="fu">head</span>(tidy_simple_ped_no_gen_num)</span>
 <span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex</span></span>
-<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt;</span></span>
-<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; 1: J0Z938   &lt;NA&gt;   &lt;NA&gt;   male</span></span>
-<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; 2: J0Z333   &lt;NA&gt;   &lt;NA&gt;   male</span></span>
-<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co">#&gt; 3: J0C561   &lt;NA&gt;   &lt;NA&gt;   male</span></span>
-<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co">#&gt; 4: J0Z475   &lt;NA&gt;   &lt;NA&gt;   male</span></span>
-<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co">#&gt; 5: J0Z511   &lt;NA&gt;   &lt;NA&gt;   male</span></span>
-<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="co">#&gt; 6: J0Z664   &lt;NA&gt;   &lt;NA&gt;   male</span></span></code></pre></div>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex Family FamilySize</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt;      &lt;int&gt;</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; 1: J0Z938   &lt;NA&gt;   &lt;NA&gt;   male   &lt;NA&gt;          1</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; 2: J0Z333   &lt;NA&gt;   &lt;NA&gt;   male   &lt;NA&gt;          1</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="co">#&gt; 3: J0C561   &lt;NA&gt;   &lt;NA&gt;   male   &lt;NA&gt;          1</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co">#&gt; 4: J0Z475   &lt;NA&gt;   &lt;NA&gt;   male   &lt;NA&gt;          1</span></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co">#&gt; 5: J0Z511   &lt;NA&gt;   &lt;NA&gt;   male   &lt;NA&gt;          1</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="co">#&gt; 6: J0Z664   &lt;NA&gt;   &lt;NA&gt;   male   &lt;NA&gt;          1</span></span></code></pre></div>
 <p>Once tidied, you can use <code>data.table::fwrite()</code> to export
 the pedigree for genetic evaluation software like ASReml.</p>
 </div>
-<div id="id_3.2" class="section level3">
+<div id="id_3-2" class="section level3">
 <h3>3.2 Pedigree loop detection</h3>
 <p>A pedigree loop occurs when an individual is its own ancestor (e.g.,
 A is the parent of B, B is the parent of C, and C is the parent of A).
@@ -561,7 +571,7 @@ replaced with <code>0</code>.</p>
 <span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>  <span class="at">quote =</span> <span class="cn">FALSE</span></span>
 <span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>)</span></code></pre></div>
 </div>
-<div id="id_3.3" class="section level3">
+<div id="id_3-3" class="section level3">
 <h3>3.3 Tracing the pedigree of a specific individual</h3>
 <p>To trace the pedigree of specific individuals, use the
 <code>cand</code> parameter. This adds a <code>Cand</code> column where
@@ -572,14 +582,22 @@ ancestors/descendants are retained.</p>
 <span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="fu">tidyped</span>(<span class="at">ped =</span> tidy_simple_ped_no_gen_num, <span class="at">cand =</span> <span class="st">&quot;J5X804&quot;</span>)</span>
 <span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="fu">tail</span>(tidy_simple_ped_J5X804_ancestors)</span>
 <span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
-<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex   Gen IndNum SireNum DamNum   Cand</span></span>
-<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt; &lt;lgcl&gt;</span></span>
-<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="co">#&gt; 1: J3X697 J2Z903   &lt;NA&gt; female     4     45      43      0  FALSE</span></span>
-<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt; 2: J3Y620 J2C161 J2Z411   male     4     46      37     42  FALSE</span></span>
-<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a><span class="co">#&gt; 3: J3Y771 J2G465 J2X544 female     4     47      40     41  FALSE</span></span>
-<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="co">#&gt; 4: J4E185 J3L886 J3X697 female     5     48      44     45  FALSE</span></span>
-<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="co">#&gt; 5: J4Y326 J3Y620 J3Y771   male     5     49      46     47  FALSE</span></span>
-<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a><span class="co">#&gt; 6: J5X804 J4Y326 J4E185 female     6     50      49     48   TRUE</span></span></code></pre></div>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex        Family FamilySize   Gen IndNum SireNum</span></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt;        &lt;char&gt;      &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;</span></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="co">#&gt; 1: J3X697 J2Z903   &lt;NA&gt; female          &lt;NA&gt;          1     4     45      43</span></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt; 2: J3Y620 J2C161 J2Z411   male J2C161xJ2Z411          1     4     46      37</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a><span class="co">#&gt; 3: J3Y771 J2G465 J2X544 female J2G465xJ2X544          1     4     47      40</span></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="co">#&gt; 4: J4E185 J3L886 J3X697 female J3L886xJ3X697          1     5     48      44</span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="co">#&gt; 5: J4Y326 J3Y620 J3Y771   male J3Y620xJ3Y771          1     5     49      46</span></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a><span class="co">#&gt; 6: J5X804 J4Y326 J4E185 female J4Y326xJ4E185          1     6     50      49</span></span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a><span class="co">#&gt;    DamNum   Cand</span></span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a><span class="co">#&gt;     &lt;int&gt; &lt;lgcl&gt;</span></span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a><span class="co">#&gt; 1:      0  FALSE</span></span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a><span class="co">#&gt; 2:     42  FALSE</span></span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a><span class="co">#&gt; 3:     41  FALSE</span></span>
+<span id="cb10-18"><a href="#cb10-18" tabindex="-1"></a><span class="co">#&gt; 4:     45  FALSE</span></span>
+<span id="cb10-19"><a href="#cb10-19" tabindex="-1"></a><span class="co">#&gt; 5:     47  FALSE</span></span>
+<span id="cb10-20"><a href="#cb10-20" tabindex="-1"></a><span class="co">#&gt; 6:     48   TRUE</span></span></code></pre></div>
 <p>By default, the function traces ancestors. You can limit the number
 of generations using <code>tracegen</code>. If <code>tracegen</code> is
 <code>NULL</code>, all available generations are traced.</p>
@@ -589,15 +607,24 @@ of generations using <code>tracegen</code>. If <code>tracegen</code> is
 <span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>  <span class="at">tracegen =</span> <span class="dv">2</span>)</span>
 <span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>  <span class="fu">print</span>(tidy_simple_ped_J5X804_ancestors_2)</span>
 <span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
-<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex   Gen IndNum SireNum DamNum   Cand</span></span>
-<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt; &lt;lgcl&gt;</span></span>
-<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="co">#&gt; 1: J3L886   &lt;NA&gt;   &lt;NA&gt;   male     1      1       0      0  FALSE</span></span>
-<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a><span class="co">#&gt; 2: J3X697   &lt;NA&gt;   &lt;NA&gt; female     1      2       0      0  FALSE</span></span>
-<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a><span class="co">#&gt; 3: J3Y620   &lt;NA&gt;   &lt;NA&gt;   male     1      3       0      0  FALSE</span></span>
-<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a><span class="co">#&gt; 4: J3Y771   &lt;NA&gt;   &lt;NA&gt; female     1      4       0      0  FALSE</span></span>
-<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a><span class="co">#&gt; 5: J4E185 J3L886 J3X697 female     2      5       1      2  FALSE</span></span>
-<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a><span class="co">#&gt; 6: J4Y326 J3Y620 J3Y771   male     2      6       3      4  FALSE</span></span>
-<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a><span class="co">#&gt; 7: J5X804 J4Y326 J4E185 female     3      7       6      5   TRUE</span></span></code></pre></div>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex        Family FamilySize   Gen IndNum SireNum</span></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt;        &lt;char&gt;      &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;</span></span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="co">#&gt; 1: J3L886   &lt;NA&gt;   &lt;NA&gt;   male          &lt;NA&gt;          1     1      1       0</span></span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a><span class="co">#&gt; 2: J3X697   &lt;NA&gt;   &lt;NA&gt; female          &lt;NA&gt;          1     1      2       0</span></span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a><span class="co">#&gt; 3: J3Y620   &lt;NA&gt;   &lt;NA&gt;   male          &lt;NA&gt;          1     1      3       0</span></span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a><span class="co">#&gt; 4: J3Y771   &lt;NA&gt;   &lt;NA&gt; female          &lt;NA&gt;          1     1      4       0</span></span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a><span class="co">#&gt; 5: J4E185 J3L886 J3X697 female J3L886xJ3X697          1     2      5       1</span></span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a><span class="co">#&gt; 6: J4Y326 J3Y620 J3Y771   male J3Y620xJ3Y771          1     2      6       3</span></span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a><span class="co">#&gt; 7: J5X804 J4Y326 J4E185 female J4Y326xJ4E185          1     3      7       6</span></span>
+<span id="cb11-16"><a href="#cb11-16" tabindex="-1"></a><span class="co">#&gt;    DamNum   Cand</span></span>
+<span id="cb11-17"><a href="#cb11-17" tabindex="-1"></a><span class="co">#&gt;     &lt;int&gt; &lt;lgcl&gt;</span></span>
+<span id="cb11-18"><a href="#cb11-18" tabindex="-1"></a><span class="co">#&gt; 1:      0  FALSE</span></span>
+<span id="cb11-19"><a href="#cb11-19" tabindex="-1"></a><span class="co">#&gt; 2:      0  FALSE</span></span>
+<span id="cb11-20"><a href="#cb11-20" tabindex="-1"></a><span class="co">#&gt; 3:      0  FALSE</span></span>
+<span id="cb11-21"><a href="#cb11-21" tabindex="-1"></a><span class="co">#&gt; 4:      0  FALSE</span></span>
+<span id="cb11-22"><a href="#cb11-22" tabindex="-1"></a><span class="co">#&gt; 5:      2  FALSE</span></span>
+<span id="cb11-23"><a href="#cb11-23" tabindex="-1"></a><span class="co">#&gt; 6:      4  FALSE</span></span>
+<span id="cb11-24"><a href="#cb11-24" tabindex="-1"></a><span class="co">#&gt; 7:      5   TRUE</span></span></code></pre></div>
 <p>The code above traces the ancestors of <code>J5X804</code> back two
 generations.</p>
 <p>To trace descendants, set <code>trace = &#39;down&#39;</code>.</p>
@@ -612,19 +639,27 @@ simultaneously.</li>
 <span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="fu">tidyped</span>(<span class="at">ped =</span> tidy_simple_ped_no_gen_num, <span class="at">cand =</span> <span class="st">&quot;J0Z990&quot;</span>, <span class="at">trace =</span> <span class="st">&quot;down&quot;</span>)</span>
 <span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="fu">print</span>(tidy_simple_ped_J0Z990_offspring)</span>
 <span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
-<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="co">#&gt; Index: &lt;Sex&gt;</span></span>
-<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex   Gen IndNum SireNum DamNum   Cand</span></span>
-<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt; &lt;lgcl&gt;</span></span>
-<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a><span class="co">#&gt; 1: J0Z990   &lt;NA&gt;   &lt;NA&gt;   male     1      1       0      0   TRUE</span></span>
-<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a><span class="co">#&gt; 2: J1I438 J0Z990   &lt;NA&gt;   male     2      2       1      0  FALSE</span></span>
-<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a><span class="co">#&gt; 3: J2G465 J1I438   &lt;NA&gt;   male     3      3       2      0  FALSE</span></span>
-<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="co">#&gt; 4: J3Y771 J2G465   &lt;NA&gt; female     4      4       3      0  FALSE</span></span>
-<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a><span class="co">#&gt; 5: J4Y326   &lt;NA&gt; J3Y771   male     5      5       0      4  FALSE</span></span>
-<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="co">#&gt; 6: J5X804 J4Y326   &lt;NA&gt; female     6      6       5      0  FALSE</span></span></code></pre></div>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="co">#&gt; 索引(index): &lt;Sex&gt;</span></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex Family FamilySize   Gen IndNum SireNum DamNum</span></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt;      &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt;</span></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a><span class="co">#&gt; 1: J0Z990   &lt;NA&gt;   &lt;NA&gt;   male   &lt;NA&gt;          1     1      1       0      0</span></span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a><span class="co">#&gt; 2: J1I438 J0Z990   &lt;NA&gt;   male   &lt;NA&gt;          1     2      2       1      0</span></span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a><span class="co">#&gt; 3: J2G465 J1I438   &lt;NA&gt;   male   &lt;NA&gt;          1     3      3       2      0</span></span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="co">#&gt; 4: J3Y771 J2G465   &lt;NA&gt; female   &lt;NA&gt;          1     4      4       3      0</span></span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a><span class="co">#&gt; 5: J4Y326   &lt;NA&gt; J3Y771   male   &lt;NA&gt;          1     5      5       0      4</span></span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="co">#&gt; 6: J5X804 J4Y326   &lt;NA&gt; female   &lt;NA&gt;          1     6      6       5      0</span></span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a><span class="co">#&gt;      Cand</span></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="co">#&gt;    &lt;lgcl&gt;</span></span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a><span class="co">#&gt; 1:   TRUE</span></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a><span class="co">#&gt; 2:  FALSE</span></span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a><span class="co">#&gt; 3:  FALSE</span></span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a><span class="co">#&gt; 4:  FALSE</span></span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a><span class="co">#&gt; 5:  FALSE</span></span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a><span class="co">#&gt; 6:  FALSE</span></span></code></pre></div>
 <p>Tracing the descendants of <code>J0Z990</code> reveals a total of 5
 individuals.</p>
 </div>
-<div id="id_3.4" class="section level3">
+<div id="id_3-4" class="section level3">
 <h3>3.4 Creating an integer pedigree</h3>
 <p>Certain genetic evaluation programs require integer-coded pedigrees,
 where individuals are numbered consecutively to facilitate the
@@ -636,28 +671,31 @@ disabled with <code>addnum = FALSE</code>.</p>
 <span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="fu">tidyped</span>(<span class="at">ped =</span> tidy_simple_ped_no_gen_num, <span class="at">addnum =</span> <span class="cn">TRUE</span>)</span>
 <span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a><span class="fu">head</span>(tidy_simple_ped_with_int)</span>
 <span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
-<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex   Gen IndNum SireNum DamNum</span></span>
-<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt;</span></span>
-<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a><span class="co">#&gt; 1: J0C032   &lt;NA&gt;   &lt;NA&gt; female     1      1       0      0</span></span>
-<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a><span class="co">#&gt; 2: J0C185   &lt;NA&gt;   &lt;NA&gt; female     1      2       0      0</span></span>
-<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a><span class="co">#&gt; 3: J0C231   &lt;NA&gt;   &lt;NA&gt; female     1      3       0      0</span></span>
-<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a><span class="co">#&gt; 4: J0C317   &lt;NA&gt;   &lt;NA&gt;   male     1      4       0      0</span></span>
-<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a><span class="co">#&gt; 5: J0C450   &lt;NA&gt;   &lt;NA&gt; female     1      5       0      0</span></span>
-<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a><span class="co">#&gt; 6: J0C561   &lt;NA&gt;   &lt;NA&gt;   male     1      6       0      0</span></span></code></pre></div>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex Family FamilySize   Gen IndNum SireNum DamNum</span></span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt;      &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt;</span></span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a><span class="co">#&gt; 1: J0C032   &lt;NA&gt;   &lt;NA&gt; female   &lt;NA&gt;          1     1      1       0      0</span></span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a><span class="co">#&gt; 2: J0C185   &lt;NA&gt;   &lt;NA&gt; female   &lt;NA&gt;          1     1      2       0      0</span></span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a><span class="co">#&gt; 3: J0C231   &lt;NA&gt;   &lt;NA&gt; female   &lt;NA&gt;          1     1      3       0      0</span></span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a><span class="co">#&gt; 4: J0C317   &lt;NA&gt;   &lt;NA&gt;   male   &lt;NA&gt;          1     1      4       0      0</span></span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a><span class="co">#&gt; 5: J0C355   &lt;NA&gt;   &lt;NA&gt; female   &lt;NA&gt;          1     1      5       0      0</span></span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a><span class="co">#&gt; 6: J0C450   &lt;NA&gt;   &lt;NA&gt; female   &lt;NA&gt;          1     1      6       0      0</span></span></code></pre></div>
 </div>
-<div id="id_3.5" class="section level3">
+<div id="id_3-5" class="section level3">
 <h3>3.5 Calculating inbreeding coefficients</h3>
 <p>The inbreeding coefficient (F) of each individual can be calculated
 using tidyped() or inbreed() functions. There are two options to add the
 inbreeding coefficients to a tidied pedigree:</p>
 <ol style="list-style-type: decimal">
 <li>Set <code>inbreed = TRUE</code> in the <code>tidyped()</code>
-function. This will calculate the inbreeding coefficients using the
-<code>nadiv</code> package and add an <code>f</code> column to the
-tidied pedigree.</li>
+function. This will calculate the inbreeding coefficients using
+optimized C++ code (Meuwissen &amp; Luo algorithm) and add an
+<code>f</code> column to the tidied pedigree.</li>
 <li>Or call <code>inbreed()</code> directly on a tidied pedigree to add
 the <code>f</code> column.</li>
 </ol>
+<p>Both options use the same high-performance engine as
+<code>pedmat(method = &quot;f&quot;)</code>, ensuring consistent results across
+the package.</p>
 <div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="co"># Create a simple inbred pedigree</span></span>
 <span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
 <span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>test_ped <span class="ot">&lt;-</span> <span class="fu">data.table</span>(</span>
@@ -670,48 +708,147 @@ the <code>f</code> column.</li>
 <span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>tidy_test <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(test_ped, <span class="at">inbreed =</span> <span class="cn">TRUE</span>)</span>
 <span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a><span class="fu">head</span>(tidy_test)</span>
 <span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
-<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex   Gen IndNum SireNum DamNum     f</span></span>
-<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt; &lt;num&gt;</span></span>
-<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a><span class="co">#&gt; 1:      A   &lt;NA&gt;   &lt;NA&gt;   male     1      1       0      0 0.000</span></span>
-<span id="cb14-16"><a href="#cb14-16" tabindex="-1"></a><span class="co">#&gt; 2:      B   &lt;NA&gt;   &lt;NA&gt; female     1      2       0      0 0.000</span></span>
-<span id="cb14-17"><a href="#cb14-17" tabindex="-1"></a><span class="co">#&gt; 3:      C      A      B   male     2      3       1      2 0.000</span></span>
-<span id="cb14-18"><a href="#cb14-18" tabindex="-1"></a><span class="co">#&gt; 4:      D      C      B female     3      4       3      2 0.250</span></span>
-<span id="cb14-19"><a href="#cb14-19" tabindex="-1"></a><span class="co">#&gt; 5:      E      C      D   male     4      5       3      4 0.375</span></span>
-<span id="cb14-20"><a href="#cb14-20" tabindex="-1"></a></span>
-<span id="cb14-21"><a href="#cb14-21" tabindex="-1"></a><span class="co"># Option 2: Calculate after tidying</span></span>
-<span id="cb14-22"><a href="#cb14-22" tabindex="-1"></a>tidy_test <span class="ot">&lt;-</span> <span class="fu">inbreed</span>(<span class="fu">tidyped</span>(test_ped))</span></code></pre></div>
+<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex Family FamilySize   Gen IndNum SireNum DamNum</span></span>
+<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt;      &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;  &lt;int&gt;</span></span>
+<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a><span class="co">#&gt; 1:      A   &lt;NA&gt;   &lt;NA&gt;   male   &lt;NA&gt;          1     1      1       0      0</span></span>
+<span id="cb14-16"><a href="#cb14-16" tabindex="-1"></a><span class="co">#&gt; 2:      B   &lt;NA&gt;   &lt;NA&gt; female   &lt;NA&gt;          1     1      2       0      0</span></span>
+<span id="cb14-17"><a href="#cb14-17" tabindex="-1"></a><span class="co">#&gt; 3:      C      A      B   male    AxB          1     2      3       1      2</span></span>
+<span id="cb14-18"><a href="#cb14-18" tabindex="-1"></a><span class="co">#&gt; 4:      D      C      B female    CxB          1     3      4       3      2</span></span>
+<span id="cb14-19"><a href="#cb14-19" tabindex="-1"></a><span class="co">#&gt; 5:      E      C      D   male    CxD          1     4      5       3      4</span></span>
+<span id="cb14-20"><a href="#cb14-20" tabindex="-1"></a><span class="co">#&gt;        f</span></span>
+<span id="cb14-21"><a href="#cb14-21" tabindex="-1"></a><span class="co">#&gt;    &lt;num&gt;</span></span>
+<span id="cb14-22"><a href="#cb14-22" tabindex="-1"></a><span class="co">#&gt; 1: 0.000</span></span>
+<span id="cb14-23"><a href="#cb14-23" tabindex="-1"></a><span class="co">#&gt; 2: 0.000</span></span>
+<span id="cb14-24"><a href="#cb14-24" tabindex="-1"></a><span class="co">#&gt; 3: 0.000</span></span>
+<span id="cb14-25"><a href="#cb14-25" tabindex="-1"></a><span class="co">#&gt; 4: 0.250</span></span>
+<span id="cb14-26"><a href="#cb14-26" tabindex="-1"></a><span class="co">#&gt; 5: 0.375</span></span>
+<span id="cb14-27"><a href="#cb14-27" tabindex="-1"></a></span>
+<span id="cb14-28"><a href="#cb14-28" tabindex="-1"></a><span class="co"># Option 2: Calculate after tidying</span></span>
+<span id="cb14-29"><a href="#cb14-29" tabindex="-1"></a>tidy_test <span class="ot">&lt;-</span> <span class="fu">inbreed</span>(<span class="fu">tidyped</span>(test_ped))</span></code></pre></div>
 </div>
-<div id="id_3.6" class="section level3">
-<h3>3.6 Summarizing the pedigree</h3>
+<div id="id_3-6" class="section level3">
+<h3>3.6 Customizing generation assignment</h3>
+<p>Generation inference is essential for pedigree visualization.
+<code>tidyped()</code> provides two methods for assigning generation
+numbers via the <code>genmethod</code> parameter:</p>
+<ul>
+<li><strong>“top” (default)</strong>: Top-aligned (depth-based).
+Founders are assigned to Generation 1. This is the optimal scheme for
+most biological pedigrees as it ensures all founders start at the top,
+preventing them from “drifting” to lower generations if they have fewer
+descendants.</li>
+<li><strong>“bottom”</strong>: Bottom-aligned (height-based).
+Generations are counted from the bottom up, aligning terminal nodes
+(offspring with no further descendants) at the highest generation
+number. This is useful when you want to show that all current
+populations are at the same level, or when introducing unrelated
+exogenous parents in later years.</li>
+</ul>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co"># Default behavior (Top-Down): J2Y434 is at Gen 3</span></span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>tidy_top <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(simple_ped, <span class="at">genmethod =</span> <span class="st">&quot;top&quot;</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>tidy_top[Ind <span class="sc">==</span> <span class="st">&quot;J2Y434&quot;</span>]</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex        Family FamilySize   Gen IndNum SireNum</span></span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt;        &lt;char&gt;      &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;</span></span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a><span class="co">#&gt; 1: J2Y434 J1C802 J1H419 female J1C802xJ1H419          1     3     50      29</span></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="co">#&gt;    DamNum</span></span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a><span class="co">#&gt;     &lt;int&gt;</span></span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="co">#&gt; 1:     34</span></span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a></span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a><span class="co"># Bottom-Up behavior: J2Y434 is at Gen 6</span></span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a>tidy_bottom <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(simple_ped, <span class="at">genmethod =</span> <span class="st">&quot;bottom&quot;</span>)</span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a>tidy_bottom[Ind <span class="sc">==</span> <span class="st">&quot;J2Y434&quot;</span>]</span>
+<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
+<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam    Sex        Family FamilySize   Gen IndNum SireNum</span></span>
+<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;char&gt;        &lt;char&gt;      &lt;int&gt; &lt;int&gt;  &lt;int&gt;   &lt;int&gt;</span></span>
+<span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a><span class="co">#&gt; 1: J2Y434 J1C802 J1H419 female J1C802xJ1H419          1     6     58      53</span></span>
+<span id="cb15-19"><a href="#cb15-19" tabindex="-1"></a><span class="co">#&gt;    DamNum</span></span>
+<span id="cb15-20"><a href="#cb15-20" tabindex="-1"></a><span class="co">#&gt;     &lt;int&gt;</span></span>
+<span id="cb15-21"><a href="#cb15-21" tabindex="-1"></a><span class="co">#&gt; 1:     54</span></span></code></pre></div>
+</div>
+<div id="id_3-7" class="section level3">
+<h3>3.7 Summarizing the pedigree</h3>
 <p>The <code>summary()</code> method provides a quick overview of the
 pedigree statistics, including the number of individuals, sex
 distribution, founders, and isolated individuals. If inbreeding
 coefficients have been calculated (column <code>f</code>), the summary
 will also include descriptive statistics of inbreeding.</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co"># Summarize the tidied pedigree</span></span>
-<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="fu">summary</span>(tidy_simple_ped)</span>
-<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="co">#&gt; Pedigree Summary:</span></span>
-<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="co">#&gt; -----------------</span></span>
-<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="co">#&gt; Total Individuals:  59 </span></span>
-<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a><span class="co">#&gt;   - Males:    29 </span></span>
-<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a><span class="co">#&gt;   - Females:  30 </span></span>
-<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a><span class="co">#&gt; Founders (parents unknown):  28 </span></span>
-<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="co">#&gt; Maximum Generation:  6</span></span>
-<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a></span>
-<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a><span class="co"># Summarize with inbreeding info</span></span>
-<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a><span class="fu">summary</span>(tidy_test)</span>
-<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co">#&gt; Pedigree Summary:</span></span>
-<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a><span class="co">#&gt; -----------------</span></span>
-<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a><span class="co">#&gt; Total Individuals:  5 </span></span>
-<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co">#&gt;   - Males:    3 </span></span>
-<span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a><span class="co">#&gt;   - Females:  2 </span></span>
-<span id="cb15-19"><a href="#cb15-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb15-20"><a href="#cb15-20" tabindex="-1"></a><span class="co">#&gt; Founders (parents unknown):  2 </span></span>
-<span id="cb15-21"><a href="#cb15-21" tabindex="-1"></a><span class="co">#&gt; Maximum Generation:  4 </span></span>
-<span id="cb15-22"><a href="#cb15-22" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb15-23"><a href="#cb15-23" tabindex="-1"></a><span class="co">#&gt; Inbreeding coefficients:</span></span>
-<span id="cb15-24"><a href="#cb15-24" tabindex="-1"></a><span class="co">#&gt;   - All:        Mean=0.1250, Min=0.0000, Max=0.3750</span></span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="co"># Summarize the tidied pedigree</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="fu">summary</span>(tidy_simple_ped)</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="co">#&gt; Pedigree Summary</span></span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a><span class="co">#&gt; ================</span></span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a><span class="co">#&gt; Total Individuals:  59 </span></span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a><span class="co">#&gt;   - Males:    29 (49.2%) </span></span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a><span class="co">#&gt;   - Females:  30 (50.8%) </span></span>
+<span id="cb16-9"><a href="#cb16-9" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-10"><a href="#cb16-10" tabindex="-1"></a><span class="co">#&gt; Pedigree Structure:</span></span>
+<span id="cb16-11"><a href="#cb16-11" tabindex="-1"></a><span class="co">#&gt;   - Founders (no parents):   28 </span></span>
+<span id="cb16-12"><a href="#cb16-12" tabindex="-1"></a><span class="co">#&gt;   - Both parents known:      28 </span></span>
+<span id="cb16-13"><a href="#cb16-13" tabindex="-1"></a><span class="co">#&gt;   - Sire only known:         2 </span></span>
+<span id="cb16-14"><a href="#cb16-14" tabindex="-1"></a><span class="co">#&gt;   - Dam only known:          1 </span></span>
+<span id="cb16-15"><a href="#cb16-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-16"><a href="#cb16-16" tabindex="-1"></a><span class="co">#&gt; Generation:</span></span>
+<span id="cb16-17"><a href="#cb16-17" tabindex="-1"></a><span class="co">#&gt;   - Maximum:  6 </span></span>
+<span id="cb16-18"><a href="#cb16-18" tabindex="-1"></a><span class="co">#&gt;   - Distribution:</span></span>
+<span id="cb16-19"><a href="#cb16-19" tabindex="-1"></a><span class="co">#&gt;       Gen 1: 28 individuals</span></span>
+<span id="cb16-20"><a href="#cb16-20" tabindex="-1"></a><span class="co">#&gt;       Gen 2: 16 individuals</span></span>
+<span id="cb16-21"><a href="#cb16-21" tabindex="-1"></a><span class="co">#&gt;       Gen 3: 8 individuals</span></span>
+<span id="cb16-22"><a href="#cb16-22" tabindex="-1"></a><span class="co">#&gt;       Gen 4: 4 individuals</span></span>
+<span id="cb16-23"><a href="#cb16-23" tabindex="-1"></a><span class="co">#&gt;       Gen 5: 2 individuals</span></span>
+<span id="cb16-24"><a href="#cb16-24" tabindex="-1"></a><span class="co">#&gt;       Gen 6: 1 individuals</span></span>
+<span id="cb16-25"><a href="#cb16-25" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-26"><a href="#cb16-26" tabindex="-1"></a><span class="co">#&gt; Reproduction:</span></span>
+<span id="cb16-27"><a href="#cb16-27" tabindex="-1"></a><span class="co">#&gt;   - Individuals with offspring:  56 </span></span>
+<span id="cb16-28"><a href="#cb16-28" tabindex="-1"></a><span class="co">#&gt;   - Sires:  28  (Mean=1.1, Max=2 offspring)</span></span>
+<span id="cb16-29"><a href="#cb16-29" tabindex="-1"></a><span class="co">#&gt;   - Dams:   28  (Mean=1.0, Max=2 offspring)</span></span>
+<span id="cb16-30"><a href="#cb16-30" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-31"><a href="#cb16-31" tabindex="-1"></a><span class="co">#&gt; Full-sibling Families:</span></span>
+<span id="cb16-32"><a href="#cb16-32" tabindex="-1"></a><span class="co">#&gt;   - Number of families:      27 </span></span>
+<span id="cb16-33"><a href="#cb16-33" tabindex="-1"></a><span class="co">#&gt;   - Mean family size:        1.04</span></span>
+<span id="cb16-34"><a href="#cb16-34" tabindex="-1"></a><span class="co">#&gt;   - Maximum family size:     2 </span></span>
+<span id="cb16-35"><a href="#cb16-35" tabindex="-1"></a><span class="co">#&gt;   - Top families by size:</span></span>
+<span id="cb16-36"><a href="#cb16-36" tabindex="-1"></a><span class="co">#&gt;       J0Z475xJ0C612: 2</span></span>
+<span id="cb16-37"><a href="#cb16-37" tabindex="-1"></a><span class="co">#&gt;       J0C317xJ0C450: 1</span></span>
+<span id="cb16-38"><a href="#cb16-38" tabindex="-1"></a><span class="co">#&gt;       J0C561xJ0C032: 1</span></span>
+<span id="cb16-39"><a href="#cb16-39" tabindex="-1"></a><span class="co">#&gt;       J0C583xJ0Z380: 1</span></span>
+<span id="cb16-40"><a href="#cb16-40" tabindex="-1"></a><span class="co">#&gt;       J0C591xJ0C231: 1</span></span>
+<span id="cb16-41"><a href="#cb16-41" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb16-42"><a href="#cb16-42" tabindex="-1"></a><span class="co">#&gt; ================</span></span></code></pre></div>
+</div>
+<div id="id_3-8" class="section level3">
+<h3>3.8 Splitting large pedigrees</h3>
+<p>For extremely large pedigrees, it is sometimes useful to split them
+into disconnected subsets or “sub-pedigrees”. The
+<code>splitped()</code> function automatically detects disconnected
+components (families that share no ancestors) and splits the pedigree
+into a list of smaller <code>tidyped</code> objects.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co"># Split the pedigree into components</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>sub_pedigrees <span class="ot">&lt;-</span> <span class="fu">splitped</span>(tidy_simple_ped)</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="co"># View summary of the split result</span></span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a><span class="fu">summary</span>(sub_pedigrees)</span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="co">#&gt; Summary of Pedigree Split</span></span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a><span class="co">#&gt; =========================</span></span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a><span class="co">#&gt; Total individuals in groups: 59 </span></span>
+<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a><span class="co">#&gt; Isolated individuals (Gen=0): 0 </span></span>
+<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a><span class="co">#&gt; Grand total: 59 </span></span>
+<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a><span class="co">#&gt; Number of groups:  2 </span></span>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a><span class="co">#&gt; Size statistics:</span></span>
+<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a><span class="co">#&gt;   Min:     3 </span></span>
+<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a><span class="co">#&gt;   Max:     56 </span></span>
+<span id="cb17-16"><a href="#cb17-16" tabindex="-1"></a><span class="co">#&gt;   Mean:    29.5 </span></span>
+<span id="cb17-17"><a href="#cb17-17" tabindex="-1"></a><span class="co">#&gt;   Median:  29.5 </span></span>
+<span id="cb17-18"><a href="#cb17-18" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-19"><a href="#cb17-19" tabindex="-1"></a><span class="co">#&gt; Connectivity: Pedigree contains disconnected groups</span></span>
+<span id="cb17-20"><a href="#cb17-20" tabindex="-1"></a></span>
+<span id="cb17-21"><a href="#cb17-21" tabindex="-1"></a><span class="co"># Access a specific sub-pedigree</span></span>
+<span id="cb17-22"><a href="#cb17-22" tabindex="-1"></a><span class="co"># first_sub &lt;- sub_pedigrees[[1]]</span></span></code></pre></div>
+<hr />
+<p><strong>See Also:</strong> -
+<code>vignette(&quot;draw-pedigree&quot;, package = &quot;visPedigree&quot;)</code> -
+<code>vignette(&quot;relationship-matrix&quot;, package = &quot;visPedigree&quot;)</code></p>
 </div>
 </div>
 

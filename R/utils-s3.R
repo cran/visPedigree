@@ -1,26 +1,330 @@
+#' Test if an object is a tidyped
+#'
+#' @param x An object to test.
+#' @return Logical scalar.
+#' @export
+is_tidyped <- function(x) {
+  inherits(x, "tidyped")
+}
+
+#' Build a unified metadata list for a tidyped object
+#'
+#' @param selfing Logical: whether selfing/monoecious mode was used.
+#' @param bisexual_parents Character vector of IDs that appear as both sire and dam.
+#' @param genmethod Character: generation assignment method ("top" or "bottom").
+#' @return A named list of pedigree metadata.
+#' @keywords internal
+build_ped_meta <- function(selfing = FALSE,
+                           bisexual_parents = character(0),
+                           genmethod = "top") {
+  list(
+    selfing           = selfing,
+    bisexual_parents  = bisexual_parents,
+    genmethod         = genmethod
+  )
+}
+
+#' Access pedigree metadata from a tidyped object
+#'
+#' @param x A tidyped object.
+#' @return The \code{ped_meta} list, or \code{NULL} if not set.
+#' @export
+pedmeta <- function(x) {
+  if (!is_tidyped(x)) stop("x is not a tidyped object.", call. = FALSE)
+  attr(x, "ped_meta")
+}
+
+#' Check whether a tidyped object contains inbreeding coefficients
+#'
+#' @param x A tidyped object.
+#' @return Logical scalar.
+#' @export
+has_inbreeding <- function(x) {
+  is_tidyped(x) && "f" %in% names(x)
+}
+
+#' Check whether a tidyped object contains candidate flags
+#'
+#' @param x A tidyped object.
+#' @return Logical scalar.
+#' @export
+has_candidates <- function(x) {
+  is_tidyped(x) && "Cand" %in% names(x)
+}
+
 #' Internal constructor for tidyped class
 #' @param x A data.table object
 #' @return A tidyped object
 #' @keywords internal
 new_tidyped <- function(x) {
   stopifnot(inherits(x, "data.table"))
-  attr(x, "tidyped") <- TRUE
-  if (!inherits(x, "tidyped")) {
-    class(x) <- c("tidyped", class(x))
+  if (!is_tidyped(x)) {
+    data.table::setattr(x, "class", c("tidyped", class(x)))
   }
-  x
+  # x[] clears data.table's invisible flag set by := and set*() operations.
+  # [.tidyped uses setattr (in-place), so no copy is created.
+  x[]
+}
+
+#' Check whether all referenced parents are present
+#'
+#' @param x A pedigree-like object.
+#' @return Logical scalar.
+#' @keywords internal
+is_complete_pedigree <- function(x) {
+  if (!is.data.frame(x)) return(FALSE)
+
+  core_cols <- c("Ind", "Sire", "Dam")
+  if (!all(core_cols %in% names(x))) return(FALSE)
+
+  sires_ok <- is.na(x$Sire) | x$Sire %in% x$Ind
+  dams_ok  <- is.na(x$Dam)  | x$Dam %in% x$Ind
+
+  all(sires_ok) && all(dams_ok)
+}
+
+#' Error on row-truncated pedigree subsets
+#'
+#' @param ped A pedigree-like object.
+#' @param fun Character scalar. Calling function name for the error message.
+#' @return The input object, invisibly.
+#' @keywords internal
+require_complete_pedigree <- function(ped, fun) {
+  if (is_complete_pedigree(ped)) return(invisible(ped))
+
+  stop(
+    fun, " requires a structurally complete pedigree. ",
+    "This input appears to be a row-truncated subset with missing parent records.\n",
+    "Compute on the full pedigree first, or extract a valid sub-pedigree with ",
+    "`tidyped(tp, cand = ids, trace = \"up\")`.",
+    call. = FALSE
+  )
+}
+
+#' Internal helper to ensure ped is a tidyped object
+#'
+#' If the object has lost its \code{tidyped} class (e.g., after \code{merge()},
+#' \code{rbind()}, or dplyr operations) but still contains the required columns,
+#' the class is automatically restored with an informational message. Otherwise,
+#' an error is raised guiding the user to call \code{tidyped()} or
+#' \code{as_tidyped()}.
+#'
+#' @param ped An object expected to be a tidyped.
+#' @return A valid tidyped object.
+#' @keywords internal
+ensure_tidyped <- function(ped) {
+  if (is_tidyped(ped)) return(ped)
+
+  if (!is.data.frame(ped)) {
+    stop("'ped' must be a tidyped object. Run `tp <- tidyped(ped)` first.",
+         call. = FALSE)
+  }
+
+  core <- c("Ind", "Sire", "Dam", "Sex", "Gen", "IndNum", "SireNum", "DamNum")
+  missing <- setdiff(core, names(ped))
+
+  if (length(missing) > 0) {
+    stop("'ped' must be a tidyped object. Run `tp <- tidyped(ped)` first.",
+         call. = FALSE)
+  }
+
+  if (!inherits(ped, "data.table")) {
+    ped <- data.table::as.data.table(ped)
+  }
+
+  # Validate that IndNum indices are still consistent with Ind/Sire/Dam.
+  # After rbind() or row subsetting, IndNum may be duplicated or no longer
+  # match the row position, which would cause silent errors in Rcpp routines.
+  if (anyDuplicated(ped$IndNum) > 0L ||
+      !identical(ped$IndNum, seq_len(nrow(ped)))) {
+    # Rebuild numeric indices from current row order
+    ped[, IndNum := .I]
+    ped[, SireNum := match(Sire, Ind, nomatch = 0L)]
+    ped[, DamNum  := match(Dam, Ind, nomatch = 0L)]
+  }
+
+  # Structure is intact, only the class label was dropped
+  message(
+    "Note: 'ped' lost its tidyped class ",
+    "(common after merge/rbind/dplyr). Restoring automatically."
+  )
+  new_tidyped(ped)
+}
+
+#' Internal helper to ensure ped is a complete tidyped object
+#'
+#' Like \code{ensure_tidyped()}, but also rejects row-truncated pedigree
+#' subsets whose referenced parents are no longer present.
+#'
+#' @param ped An object expected to be a complete tidyped pedigree.
+#' @param fun Character scalar. Calling function name for the error message.
+#' @return A valid, structurally complete tidyped object.
+#' @keywords internal
+ensure_complete_tidyped <- function(ped, fun) {
+  if (is_tidyped(ped)) {
+    require_complete_pedigree(ped, fun)
+    return(ped)
+  }
+
+  if (!is.data.frame(ped)) {
+    stop("'ped' must be a tidyped object. Run `tp <- tidyped(ped)` first.",
+         call. = FALSE)
+  }
+
+  core <- c("Ind", "Sire", "Dam", "Sex", "Gen", "IndNum", "SireNum", "DamNum")
+  missing <- setdiff(core, names(ped))
+
+  if (length(missing) > 0) {
+    stop("'ped' must be a tidyped object. Run `tp <- tidyped(ped)` first.",
+         call. = FALSE)
+  }
+
+  if (!inherits(ped, "data.table")) {
+    ped <- data.table::as.data.table(ped)
+  }
+
+  require_complete_pedigree(ped, fun)
+
+  if (anyDuplicated(ped$IndNum) > 0L ||
+      !identical(ped$IndNum, seq_len(nrow(ped)))) {
+    ped[, IndNum := .I]
+    ped[, SireNum := match(Sire, Ind, nomatch = 0L)]
+    ped[, DamNum  := match(Dam, Ind, nomatch = 0L)]
+  }
+
+  message(
+    "Note: 'ped' lost its tidyped class ",
+    "(common after merge/rbind/dplyr). Restoring automatically."
+  )
+  new_tidyped(ped)
+}
+
+#' Restore the tidyped class to a manipulated pedigree
+#'
+#' Rapidly restores the \code{tidyped} class to a \code{data.table} or
+#' \code{data.frame} that was previously processed by \code{\link{tidyped}()}
+#' but lost its class attributes due to data manipulation.
+#'
+#' This is a lightweight operation that only checks for the required columns
+#' and re-attaches the class---it does \strong{not} re-run the full pedigree
+#' sorting, generation inference, or loop detection.
+#'
+#' @param x A \code{data.table} or \code{data.frame} that was previously a
+#'   tidyped object. It must still contain the core columns: \code{Ind},
+#'   \code{Sire}, \code{Dam}, \code{Sex}, \code{Gen}, \code{IndNum},
+#'   \code{SireNum}, \code{DamNum}.
+#'
+#' @return A \code{tidyped} object.
+#'
+#' @details
+#' This helper is intended for objects that still contain the core pedigree
+#' columns and numeric indices, but no longer inherit from \code{tidyped}.
+#' A common reproducible case is \code{rbind()} on two \code{tidyped}
+#' fragments, which typically returns a plain \code{data.table}. Converting a
+#' \code{tidyped} object to a plain \code{data.frame} and then subsetting it
+#' also drops the class.
+#'
+#' Some operations, such as \code{merge()} or certain dplyr workflows, may or
+#' may not preserve the \code{tidyped} class depending on the versions of
+#' \pkg{data.table}, \pkg{dplyr}, and the exact method dispatch path used in
+#' the current R session. Therefore, \code{as_tidyped()} should be viewed as a
+#' safe recovery helper rather than something only needed after one specific
+#' verb.
+#'
+#' Typical class-loss scenarios include:
+#' \itemize{
+#'   \item \code{rbind(tped1, tped2)} --- often returns plain \code{data.table}
+#'   \item \code{as.data.frame(tped)[rows, ]} --- returns plain \code{data.frame}
+#'   \item manual class removal or serialization / import workflows
+#' }
+#' After such operations, downstream analysis functions (e.g.,
+#' \code{\link{pedstats}}, \code{\link{pedne}}) will either error or
+#' automatically restore the class. You can also call \code{as_tidyped()}
+#' explicitly to restore the class yourself.
+#'
+#' @examples
+#' library(visPedigree)
+#' tp <- tidyped(simple_ped)
+#' class(tp)
+#' # [1] "tidyped"    "data.table" "data.frame"
+#'
+#' # Simulate class loss via rbind()
+#' tp2 <- rbind(tp[1:5], tp[6:10])
+#' class(tp2)
+#' # [1] "data.table" "data.frame"
+#'
+#' # Restore the class
+#' tp3 <- as_tidyped(tp2)
+#' class(tp3)
+#' # [1] "tidyped"    "data.table" "data.frame"
+#'
+#' # It can also restore from a plain data.frame if core columns are intact
+#' tp_df <- as.data.frame(tp)
+#' tp4 <- tp_df[tp_df$Gen > 1, ]
+#' class(tp4)
+#' # [1] "data.frame"
+#'
+#' tp5 <- as_tidyped(tp4)
+#' class(tp5)
+#' # [1] "tidyped"    "data.table" "data.frame"
+#'
+#' @seealso \code{\link{tidyped}}, \code{\link{new_tidyped}}
+#' @export
+as_tidyped <- function(x) {
+  if (is_tidyped(x)) return(x)
+
+  if (!is.data.frame(x)) {
+    stop("Cannot coerce to tidyped: input is not a data.frame or data.table.",
+         call. = FALSE)
+  }
+
+  if (!inherits(x, "data.table")) {
+    x <- data.table::as.data.table(x)
+  }
+
+  core <- c("Ind", "Sire", "Dam", "Sex", "Gen", "IndNum", "SireNum", "DamNum")
+  missing <- setdiff(core, names(x))
+
+  if (length(missing) > 0) {
+    stop(
+      "Cannot restore tidyped class. Missing columns: ",
+      paste(missing, collapse = ", "),
+      ". Run `tidyped()` on raw data instead.",
+      call. = FALSE
+    )
+  }
+
+  # Rebuild numeric indices if they are inconsistent (e.g. after rbind/subset)
+  if (anyDuplicated(x$IndNum) > 0L ||
+      !identical(x$IndNum, seq_len(nrow(x)))) {
+    x[, IndNum := .I]
+    x[, SireNum := match(Sire, Ind, nomatch = 0L)]
+    x[, DamNum  := match(Dam, Ind, nomatch = 0L)]
+  }
+
+  new_tidyped(x)
 }
 
 #' Internal validator for tidyped class
+#'
+#' Validates a tidyped object. If the object has lost its class but retains the
+#' required columns, it is automatically restored via \code{ensure_tidyped()}.
+#' Fatal structural problems (e.g., missing core columns) raise an error.
+#'
 #' @param x A tidyped object
-#' @return The object if valid, otherwise an error
+#' @return The (possibly restored) object if valid, otherwise an error
 #' @keywords internal
 validate_tidyped <- function(x) {
-  if (!inherits(x, "tidyped")) {
-    stop("Object must be of class 'tidyped'", call. = FALSE)
-  }
-  if (!inherits(x, "data.table")) {
-    stop("Object must inherit from 'data.table'", call. = FALSE)
+  # Attempt auto-recovery if class was lost
+
+  if (!is_tidyped(x)) {
+    x <- tryCatch(
+      suppressMessages(ensure_tidyped(x)),
+      error = function(e) {
+        stop("Object must be of class 'tidyped'. ", conditionMessage(e),
+             call. = FALSE)
+      }
+    )
   }
 
   needed <- c("Ind", "Sire", "Dam", "Sex")
@@ -35,14 +339,107 @@ validate_tidyped <- function(x) {
     )
   }
   
-  if (!isTRUE(attr(x, "tidyped"))) {
-    stop(
-      "The object must have the 'tidyped' attribute set to TRUE.",
+  x
+}
+
+#' Subset a tidyped object
+#'
+#' Intercepts \code{data.table}'s \code{[} method for \code{tidyped} objects.
+#' After subsetting, the method checks whether the result is still a valid
+#' pedigree (all referenced parents still present). If so, \code{IndNum},
+#' \code{SireNum}, and \code{DamNum} are rebuilt and the \code{tidyped} class
+#' is preserved. If the pedigree becomes structurally incomplete (missing parent
+#' records), the result is degraded to a plain \code{data.table} with a warning.
+#' Column-only selections (missing core columns) also return a plain
+#' \code{data.table}.
+#'
+#' @param x A \code{tidyped} object.
+#' @param ... Arguments passed to the \code{data.table} \code{[} method.
+#' @return A \code{tidyped} object if the result is still a complete pedigree,
+#'   otherwise a plain \code{data.table}.
+#' @export
+`[.tidyped` <- function(x, ...) {
+  # Save metadata before dispatching to data.table
+  meta <- attr(x, "ped_meta")
+  cl <- class(x)
+
+  sc <- sys.call()
+
+  # Detect := (modify-in-place) operations.
+  # := may appear in any argument position, e.g.:
+  #   x[, col := val]              -> sc[[3]] is `:=`(col, val)
+  #   x[cond, col := val]          -> sc[[4]] is `:=`(col, val)
+  #   x[, `:=`(col1=v1, col2=v2)] -> sc[[3]] is `:=`(...)
+  has_assign <- FALSE
+  for (k in seq_along(sc)[-c(1L, 2L)]) {
+    is_assign_k <- tryCatch({
+      arg <- sc[[k]]
+      is.call(arg) && identical(arg[[1L]], quote(`:=`))
+    }, error = function(e) FALSE)
+    if (isTRUE(is_assign_k)) {
+      has_assign <- TRUE
+      break
+    }
+  }
+
+  # Use data.table::setattr() to strip the class IN PLACE (no copy!).
+  # This is critical: class(x) <- ... triggers copy-on-modify, which breaks
+
+  # := operations because the caller's variable still points to the original.
+  data.table::setattr(x, "class", setdiff(cl, "tidyped"))
+  # Ensure class is always restored, even if an error occurs
+  on.exit(data.table::setattr(x, "class", cl), add = TRUE)
+
+  # Re-dispatch the original call with proper NSE support.
+  # NextMethod() breaks data.table's substitute() mechanism, so we
+  # reconstruct the call and evaluate in a helper environment that
+  # chains to the caller's frame (for user-defined variables in i/j).
+  sc[[1L]] <- quote(`[`)
+  sc[[2L]] <- quote(x)
+  env <- list2env(list(x = x), parent = parent.frame())
+  result <- eval(sc, envir = env)
+
+  # Restore class on the original object (in-place)
+  data.table::setattr(x, "class", cl)
+
+  if (has_assign) {
+    # := modifies x by reference. x IS the caller's object (no copy).
+    # Class already restored above. Return invisibly.
+    return(invisible(x))
+  }
+
+  # If result is not a data.table (e.g., single column vector), return as-is
+  if (!is.data.table(result)) return(result)
+
+  # Check if core columns are still present (column subset may have removed them)
+  core_cols <- c("Ind", "Sire", "Dam")
+  if (!all(core_cols %in% names(result))) return(result)
+
+  # Check pedigree completeness: all non-NA parents must still be in Ind
+  if (is_complete_pedigree(result)) {
+    # Pedigree is still complete -> rebuild IndNum and restore class.
+    # Use data.table::set() to avoid recursive [.tidyped dispatch.
+    if ("IndNum" %in% names(result)) {
+      data.table::set(result, j = "IndNum",  value = seq_len(nrow(result)))
+      data.table::set(result, j = "SireNum",
+                      value = match(result$Sire, result$Ind, nomatch = 0L))
+      data.table::set(result, j = "DamNum",
+                      value = match(result$Dam, result$Ind, nomatch = 0L))
+    }
+    data.table::setattr(result, "ped_meta", meta)
+    data.table::setattr(result, "class", cl)
+  } else {
+    # Pedigree is incomplete -> degrade to plain data.table
+    warning(
+      "Subsetting removed parent records. ",
+      "Result is a plain data.table, not a tidyped.\n",
+      "Use tidyped(tp, cand = ids, trace = \"up\") ",
+      "to extract a valid sub-pedigree.",
       call. = FALSE
     )
   }
-  
-  x
+
+  result
 }
 
 #' Print method for tidyped pedigree
@@ -98,6 +495,7 @@ summary.tidyped <- function(object, ...) {
   res$n_ind <- nrow(x)
   res$n_male <- sum(x$Sex == "male", na.rm = TRUE)
   res$n_female <- sum(x$Sex == "female", na.rm = TRUE)
+  res$n_monoecious <- sum(x$Sex == "monoecious", na.rm = TRUE)
   res$n_unknown_sex <- sum(is.na(x$Sex))
   
   # Founders: Individuals with both parents unknown (NA)
@@ -230,6 +628,11 @@ print.summary.tidyped <- function(x, ...) {
   
   cat("  - Males:   ", sprintf("%d (%.1f%%)", x$n_male, pct_male), "\n")
   cat("  - Females: ", sprintf("%d (%.1f%%)", x$n_female, pct_female), "\n")
+  
+  if (!is.null(x$n_monoecious) && x$n_monoecious > 0) {
+    pct_monoecious <- if(x$n_ind > 0) 100 * x$n_monoecious / x$n_ind else 0
+    cat("  - Monoecious: ", sprintf("%d (%.1f%%)", x$n_monoecious, pct_monoecious), "\n")
+  }
   
   if (x$n_unknown_sex > 0) {
     pct_unknown <- if(x$n_ind > 0) 100 * x$n_unknown_sex / x$n_ind else 0

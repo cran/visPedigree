@@ -19,6 +19,9 @@ visped(tidy_small_ped, compact = TRUE, file = tempfile(fileext = ".pdf"))
 tidy_simple_ped <- tidyped(simple_ped)
 visped(tidy_simple_ped, cex=0.3, symbolsize=10)
 
+## ----vissimpleped_genlab, fig.show="hold"-------------------------------------
+visped(tidy_simple_ped, cex = 0.3, symbolsize = 10, genlab = TRUE)
+
 ## -----------------------------------------------------------------------------
 suppressMessages(visped(tidy_simple_ped, showgraph = FALSE, file = tempfile(fileext = ".pdf")))
 

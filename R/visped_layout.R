@@ -96,7 +96,7 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
   }
   ped_igraph$node[nodetype %in% c("real", "compact")] <- real_node
 
-  if ((!outline) & gen_max_size >= 2) {
+  if (gen_max_size >= 2) {
     min_gap <- 0.8 / gen_max_size
     fam_gap <- min_gap * 1.2
     
@@ -221,6 +221,11 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
       label.cex = current_cex
     )]
   }
+
+  # Compute generation info for labels (using final layout coordinates)
+  gen_info <- ped_igraph$node[nodetype %in% c("real", "compact"),
+                              .(y = mean(y, na.rm = TRUE), N = .N), by = gen]
+  setorder(gen_info, gen)
   
   # Final graph creation with all attributes
   # Ensure the order of columns in edge and node are correct for igraph
@@ -233,7 +238,8 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
     canvas_width = canvas_width_s,
     canvas_height = canvas_height,
     node_size = max_node_size,
-    best_cex = best_cex
+    best_cex = best_cex,
+    gen_info = gen_info
   ))
 }
 

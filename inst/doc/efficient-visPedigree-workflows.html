@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>2. Efficient visPedigree Workflows</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">2. Efficient visPedigree Workflows</h1>
+
+
+
+<p>This vignette summarizes efficient day-to-day workflows for
+<code>visPedigree</code> after the <code>tidyped</code> architecture
+updates. The goal is simple:</p>
+<ol style="list-style-type: decimal">
+<li>tidy once,</li>
+<li>reuse the resulting <code>tidyped</code> object many times,</li>
+<li>subset safely,</li>
+<li>trace candidates explicitly when pedigree completeness matters.</li>
+</ol>
+<p>For basic tidying, see <code>tidy-pedigree</code>. For downstream
+statistics, see <code>pedigree-analysis</code>.</p>
+<div id="load-packages-and-example-data" class="section level2">
+<h2>1. Load packages and example data</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(visPedigree)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="fu">data</span>(simple_ped, <span class="at">package =</span> <span class="st">&quot;visPedigree&quot;</span>)</span></code></pre></div>
+</div>
+<div id="tidy-once-reuse-many-times" class="section level2">
+<h2>2. Tidy once, reuse many times</h2>
+<p>The most efficient workflow is to create a master
+<code>tidyped</code> object once and reuse it for plotting, tracing,
+inbreeding, and matrix calculations.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>tp_master <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(simple_ped)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="fu">class</span>(tp_master)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;tidyped&quot;    &quot;data.table&quot; &quot;data.frame&quot;</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="fu">is_tidyped</span>(tp_master)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="fu">pedmeta</span>(tp_master)</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co">#&gt; $selfing</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#&gt; [1] FALSE</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt; $bisexual_parents</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt; character(0)</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt; $genmethod</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt; [1] &quot;top&quot;</span></span></code></pre></div>
+<p>This avoids repeated validation, founder insertion, loop checking,
+generation assignment, and integer re-indexing.</p>
+</div>
+<div id="fast-repeated-tracing-from-an-existing-tidyped" class="section level2">
+<h2>3. Fast repeated tracing from an existing <code>tidyped</code></h2>
+<p>When the input is already a <code>tidyped</code> object and
+<code>cand</code> is supplied, <code>tidyped()</code> now uses a fast
+path. It skips the expensive global preprocessing steps and directly
+traces the requested candidates.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>tp_up <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(tp_master, <span class="at">cand =</span> <span class="st">&quot;J5X804&quot;</span>, <span class="at">trace =</span> <span class="st">&quot;up&quot;</span>, <span class="at">tracegen =</span> <span class="dv">2</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>tp_down <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(tp_master, <span class="at">cand =</span> <span class="st">&quot;J0Z990&quot;</span>, <span class="at">trace =</span> <span class="st">&quot;down&quot;</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="fu">has_candidates</span>(tp_up)</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>tp_up[, .(Ind, Sire, Dam, Cand)]</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam   Cand</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;lgcl&gt;</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt; 1: J3L886   &lt;NA&gt;   &lt;NA&gt;  FALSE</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt; 2: J3X697   &lt;NA&gt;   &lt;NA&gt;  FALSE</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt; 3: J3Y620   &lt;NA&gt;   &lt;NA&gt;  FALSE</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt; 4: J3Y771   &lt;NA&gt;   &lt;NA&gt;  FALSE</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt; 5: J4E185 J3L886 J3X697  FALSE</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt; 6: J4Y326 J3Y620 J3Y771  FALSE</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt; 7: J5X804 J4Y326 J4E185   TRUE</span></span></code></pre></div>
+<p>Recommended pattern:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># expensive once</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co"># tp_master &lt;- tidyped(raw_ped)</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co"># cheap many times</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co"># tp_a &lt;- tidyped(tp_master, cand = ids_a, trace = &quot;up&quot;)</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co"># tp_b &lt;- tidyped(tp_master, cand = ids_b, trace = &quot;all&quot;, tracegen = 3)</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co"># tp_c &lt;- tidyped(tp_master, cand = ids_c, trace = &quot;down&quot;)</span></span></code></pre></div>
+</div>
+<div id="safe-data.table-usage-on-tidyped" class="section level2">
+<h2>4. Safe <code>data.table</code> usage on <code>tidyped</code></h2>
+<p>A <code>tidyped</code> object is also a <code>data.table</code>, so
+by-reference workflows remain available.</p>
+<div id="adding-new-columns-is-safe" class="section level3">
+<h3>4.1 Adding new columns is safe</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>tp_work <span class="ot">&lt;-</span> <span class="fu">copy</span>(tp_master)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>tp_work[, phenotype <span class="sc">:=</span> <span class="fu">seq_len</span>(.N)]</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="fu">class</span>(tp_work)</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; [1] &quot;tidyped&quot;    &quot;data.table&quot; &quot;data.frame&quot;</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="fu">head</span>(tp_work[, .(Ind, phenotype)])</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt;       Ind phenotype</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt;     &lt;int&gt;</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt; 1: J0C032         1</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt; 2: J0C185         2</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt; 3: J0C231         3</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt; 4: J0C317         4</span></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; 5: J0C355         5</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co">#&gt; 6: J0C450         6</span></span></code></pre></div>
+<p>The <code>tidyped</code> class is preserved after <code>:=</code>
+operations.</p>
+</div>
+<div id="incomplete-row-subsetting-now-degrades-safely" class="section level3">
+<h3>4.2 Incomplete row subsetting now degrades safely</h3>
+<p>If row filtering removes required parents, the result is no longer a
+complete pedigree. In that case the object is downgraded to a plain
+<code>data.table</code> with a warning.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>ped_year <span class="ot">&lt;-</span> <span class="fu">data.table</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="at">Ind =</span> <span class="fu">c</span>(<span class="st">&quot;A&quot;</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;C&quot;</span>, <span class="st">&quot;D&quot;</span>),</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">Sire =</span> <span class="fu">c</span>(<span class="cn">NA</span>, <span class="cn">NA</span>, <span class="st">&quot;A&quot;</span>, <span class="st">&quot;C&quot;</span>),</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">Dam =</span> <span class="fu">c</span>(<span class="cn">NA</span>, <span class="cn">NA</span>, <span class="st">&quot;B&quot;</span>, <span class="st">&quot;B&quot;</span>),</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">Year =</span> <span class="fu">c</span>(<span class="dv">2000</span>, <span class="dv">2000</span>, <span class="dv">2005</span>, <span class="dv">2006</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>)</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>tp_year <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(ped_year)</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>sub_dt <span class="ot">&lt;-</span> tp_year[Year <span class="sc">&gt;</span> <span class="dv">2005</span>]</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; Warning: Subsetting removed parent records. Result is a plain data.table, not a tidyped.</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; Use tidyped(tp, cand = ids, trace = &quot;up&quot;) to extract a valid sub-pedigree.</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="fu">class</span>(sub_dt)</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt; [1] &quot;data.table&quot; &quot;data.frame&quot;</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>sub_dt</span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam  Year Family FamilySize   Gen    Sex IndNum SireNum</span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;num&gt; &lt;char&gt;      &lt;int&gt; &lt;int&gt; &lt;char&gt;  &lt;int&gt;   &lt;int&gt;</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; 1:      D      C      B  2006    CxB          1     3   &lt;NA&gt;      4       3</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt;    DamNum</span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt;     &lt;int&gt;</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt; 1:      2</span></span></code></pre></div>
+<p>This behavior prevents invalid integer pedigree indices from silently
+reaching C++ code.</p>
+<p>Completeness-sensitive analyses now fail fast on such truncated
+subsets:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">inbreed</span>(sub_dt)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt; Error:</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; ! inbreed() requires a structurally complete pedigree. This input appears to be a row-truncated subset with missing parent records.</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; Compute on the full pedigree first, or extract a valid sub-pedigree with `tidyped(tp, cand = ids, trace = &quot;up&quot;)`.</span></span></code></pre></div>
+</div>
+<div id="use-explicit-tracing-when-you-need-a-valid-sub-pedigree" class="section level3">
+<h3>4.3 Use explicit tracing when you need a valid sub-pedigree</h3>
+<p>If the goal is to keep a structurally valid pedigree around focal
+individuals, use candidate tracing instead of ad hoc row filtering.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>valid_sub_tp <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(tp_year, <span class="at">cand =</span> <span class="st">&quot;D&quot;</span>, <span class="at">trace =</span> <span class="st">&quot;up&quot;</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="fu">class</span>(valid_sub_tp)</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;tidyped&quot;    &quot;data.table&quot; &quot;data.frame&quot;</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>valid_sub_tp[, .(Ind, Sire, Dam, Cand)]</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; Tidy Pedigree Object</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co">#&gt;       Ind   Sire    Dam   Cand</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;char&gt; &lt;char&gt; &lt;lgcl&gt;</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co">#&gt; 1:      A   &lt;NA&gt;   &lt;NA&gt;  FALSE</span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#&gt; 2:      B   &lt;NA&gt;   &lt;NA&gt;  FALSE</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#&gt; 3:      C      A      B  FALSE</span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a><span class="co">#&gt; 4:      D      C      B   TRUE</span></span></code></pre></div>
+<p>Then compute on the valid sub-pedigree and, if needed, filter the
+final result back to the focal individuals:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">inbreed</span>(valid_sub_tp)[Ind <span class="sc">==</span> <span class="st">&quot;D&quot;</span>, .(Ind, f)]</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">#&gt;       Ind     f</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;num&gt;</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&gt; 1:      D  0.25</span></span></code></pre></div>
+</div>
+</div>
+<div id="splitped-versus-pedsubpop" class="section level2">
+<h2>5. <code>splitped()</code> versus <code>pedsubpop()</code></h2>
+<p>These two functions serve different purposes.</p>
+<ul>
+<li><code>splitped()</code> returns the actual split pedigree
+objects.</li>
+<li><code>pedsubpop()</code> returns a summary table.</li>
+</ul>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>sub_tps <span class="ot">&lt;-</span> <span class="fu">splitped</span>(tp_master)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="fu">length</span>(sub_tps)</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="co">#&gt; [1] 2</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="fu">class</span>(sub_tps[[<span class="dv">1</span>]])</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co">#&gt; [1] &quot;tidyped&quot;    &quot;data.table&quot; &quot;data.frame&quot;</span></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="fu">pedsubpop</span>(tp_master)</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt;     Group     N N_Sire N_Dam N_Founder</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a><span class="co">#&gt;    &lt;char&gt; &lt;int&gt;  &lt;int&gt; &lt;int&gt;     &lt;int&gt;</span></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="co">#&gt; 1:    GP1    56     27    27        26</span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="co">#&gt; 2:    GP2     3      1     1         2</span></span></code></pre></div>
+<p>Use <code>splitped()</code> when you need downstream analysis on each
+component. Use <code>pedsubpop()</code> when you only need the component
+summary.</p>
+</div>
+<div id="use-accessors-instead-of-manual-attribute-checks" class="section level2">
+<h2>6. Use accessors instead of manual attribute checks</h2>
+<p>The updated accessors are the preferred way to inspect object
+state.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>tp_f <span class="ot">&lt;-</span> <span class="fu">inbreed</span>(tp_master)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="fu">is_tidyped</span>(tp_f)</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="fu">has_inbreeding</span>(tp_f)</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="fu">has_candidates</span>(tp_f)</span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="co">#&gt; [1] FALSE</span></span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="fu">pedmeta</span>(tp_f)</span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a><span class="co">#&gt; $selfing</span></span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a><span class="co">#&gt; [1] FALSE</span></span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a><span class="co">#&gt; $bisexual_parents</span></span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a><span class="co">#&gt; character(0)</span></span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb11-16"><a href="#cb11-16" tabindex="-1"></a><span class="co">#&gt; $genmethod</span></span>
+<span id="cb11-17"><a href="#cb11-17" tabindex="-1"></a><span class="co">#&gt; [1] &quot;top&quot;</span></span></code></pre></div>
+<p>This is preferable to hand-written checks such as
+<code>&quot;f&quot; %in% names(tp)</code> or manual attribute access scattered
+throughout user code.</p>
+</div>
+<div id="recommended-high-efficiency-workflow" class="section level2">
+<h2>7. Recommended high-efficiency workflow</h2>
+<p>A practical pattern for large pedigrees is:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co"># 1. build one validated master object</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="co"># tp_master &lt;- tidyped(raw_ped)</span></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co"># 2. add analysis-specific columns in place</span></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="co"># tp_master[, phenotype := pheno_vector]</span></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="co"># tp_master[, cohort := year_vector]</span></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a><span class="co"># 3. extract valid candidate sub-pedigrees explicitly</span></span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a><span class="co"># tp_sel &lt;- tidyped(tp_master, cand = selected_ids, trace = &quot;up&quot;, tracegen = 3)</span></span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a></span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="co"># 4. run downstream analysis on either the full master or traced sub-pedigree</span></span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a><span class="co"># pedstats(tp_master)</span></span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="co"># pedmat(tp_sel)</span></span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a><span class="co"># inbreed(tp_sel)</span></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="co"># visped(tp_sel)</span></span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a><span class="co"># 5. split only when disconnected components really matter</span></span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a><span class="co"># comps &lt;- splitped(tp_master)</span></span></code></pre></div>
+</div>
+<div id="practical-rules-of-thumb" class="section level2">
+<h2>8. Practical rules of thumb</h2>
+<ol style="list-style-type: decimal">
+<li>Call <code>tidyped()</code> on raw pedigree data once.</li>
+<li>Reuse the resulting <code>tidyped</code> object as the master
+pedigree.</li>
+<li>Use <code>tidyped(tp_master, cand = ...)</code> for valid local
+extraction.</li>
+<li>Use ordinary row filtering only when a plain <code>data.table</code>
+result is acceptable.</li>
+<li>Use <code>splitped()</code> for actual component objects and
+<code>pedsubpop()</code> for summaries.</li>
+<li>Use <code>pedmeta()</code>, <code>is_tidyped()</code>,
+<code>has_inbreeding()</code>, and <code>has_candidates()</code> to
+inspect object state.</li>
+</ol>
+<p>These rules keep workflows fast, explicit, and structurally safe.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

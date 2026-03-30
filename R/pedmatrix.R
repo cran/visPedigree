@@ -1,3 +1,18 @@
+# --- Internal: dgeMatrix fast-coercion cache ---
+# Wrap a base matrix as dgeMatrix without any N² symmetry/sparsity scan.
+# Used by the sparse=TRUE path of pedmat() when dense storage is appropriate.
+# inherits(result, "Matrix") == TRUE; as.matrix() round-trips correctly.
+# Class definition is cached on first call to avoid repeated namespace lookups.
+.dgeMatrix_cache <- new.env(parent = emptyenv())
+.to_dgeMatrix <- function(mat) {
+  if (is.null(.dgeMatrix_cache$cls))
+    .dgeMatrix_cache$cls <- methods::getClass("dgeMatrix", where = asNamespace("Matrix"))
+  dn <- dimnames(mat)
+  if (is.null(dn)) dn <- list(NULL, NULL)
+  methods::new(.dgeMatrix_cache$cls, x = as.double(mat),
+               Dim = as.integer(dim(mat)), Dimnames = dn)
+}
+
 #' Genetic Relationship Matrices and Inbreeding Coefficients
 #'
 #' @description
@@ -58,7 +73,7 @@
 #'   \item \code{\link{query_relationship}(x, id1, id2)}: Query any individual
 #'         pair, including merged siblings (automatic lookup)
 #'   \item \code{\link{expand_pedmat}(x)}: Restore full matrix dimensions
-#'   \item \code{\link{vismat}(x)}: Visualize directly (auto-detects compact)
+#'   \item \code{\link{vismat}(x)}: Visualize directly (auto-expands compact)
 #' }
 #' 
 #' \strong{Performance Notes:}
@@ -161,7 +176,7 @@
 #' \dontrun{
 #' vismat(A)                       # Heatmap of relationship matrix
 #' vismat(A_compact)               # Works with compact matrices
-#' vismat(A, grouping = "Gen")     # Group by generation
+#' vismat(A, by = "Gen")     # Group by generation
 #' }
 #' 
 #' @references
@@ -224,7 +239,7 @@ pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto",
   }
   
   # Store original pedigree N for call_info
-  n_original <- if (inherits(ped, "tidyped")) nrow(ped) else {
+  n_original <- if (is_tidyped(ped)) nrow(ped) else {
     # Check if it's a data.frame/table before calling nrow
     if (is.data.frame(ped)) nrow(ped) else NA_integer_
   }
@@ -232,7 +247,7 @@ pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto",
   # Handle compact mode
   if (compact) {
     # Store original pedigree for metadata
-    ped_original <- if (inherits(ped, "tidyped")) ped else tidyped(ped, addnum = TRUE)
+    ped_original <- if (is_tidyped(ped)) ped else tidyped(ped, addnum = TRUE)
     n_original <- nrow(ped_original)
 
     # Compact the pedigree
@@ -304,7 +319,9 @@ pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto",
   }
 
   # 1. Standardize pedigree
-  if (!inherits(ped, "tidyped")) {
+  if (is_tidyped(ped) || all(c("Ind", "Sire", "Dam", "Sex", "Gen", "IndNum", "SireNum", "DamNum") %in% names(ped))) {
+    ped <- ensure_complete_tidyped(ped, sprintf("pedmat(method = \"%s\")", method))
+  } else if (!is_tidyped(ped)) {
     ped <- tidyped(ped, addnum = TRUE)
   }
   
@@ -380,11 +397,16 @@ pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto",
       
     } else if (m == "A") {
       A_mat <- get_A_dense()
-      output$A <- if (sparse) Matrix::Matrix(A_mat, sparse = TRUE) else A_mat
+      # A matrices are nearly fully non-zero; converting to dgCMatrix via
+      # Matrix::Matrix(dense, sparse=TRUE) scans all N² elements to detect
+      # zeros — pure overhead with no storage benefit.  Return a dgeMatrix
+      # (dense symmetric) which satisfies inherits(., "Matrix") and coerces
+      # to a base matrix via as.matrix() without the N² scan.
+      output$A <- if (sparse) .to_dgeMatrix(A_mat) else A_mat
       
     } else if (m == "D") {
       D_mat <- get_D_dense()
-      output$D <- if (sparse) Matrix::Matrix(D_mat, sparse = TRUE) else D_mat
+      output$D <- if (sparse) .to_dgeMatrix(D_mat) else D_mat
       # Store A matrix for compact mode reuse (on output list, not S4 matrix)
       if (!is.null(cache$A_dense)) {
         output$A_intermediate_D <- cache$A_dense
@@ -397,11 +419,11 @@ pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto",
         "sympd" = cpp_invert_sympd(D_mat),
         "general" = cpp_invert_dense(D_mat)
       )
-      output$Dinv <- if (sparse) Matrix::Matrix(Dinv, sparse = TRUE) else Dinv
+      output$Dinv <- if (sparse) .to_dgeMatrix(Dinv) else Dinv
 
     } else if (m == "AA") {
       AA_mat <- get_AA_dense()
-      output$AA <- if (sparse) Matrix::Matrix(AA_mat, sparse = TRUE) else AA_mat
+      output$AA <- if (sparse) .to_dgeMatrix(AA_mat) else AA_mat
       # Store A matrix for compact mode reuse (on output list, not S4 matrix)
       if (!is.null(cache$A_dense)) {
         output$A_intermediate_AA <- cache$A_dense
@@ -414,7 +436,7 @@ pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto",
         "sympd" = cpp_invert_sympd(AA_mat),
         "general" = cpp_invert_dense(AA_mat)
       )
-      output$AAinv <- if (sparse) Matrix::Matrix(AAinv, sparse = TRUE) else AAinv
+      output$AAinv <- if (sparse) .to_dgeMatrix(AAinv) else AAinv
       
     } else if (m == "Ainv") {
       f_res <- get_f_res()
@@ -517,11 +539,11 @@ pedmat <- function(ped, method = "A", sparse = TRUE, invert_method = "auto",
 #' @keywords internal
 compact_ped_for_matrix <- function(ped) {
   # Ensure tidyped format
-  if (!inherits(ped, "tidyped")) {
+  if (!is_tidyped(ped)) {
     ped <- tidyped(ped, addnum = TRUE)
   }
   
-  ped_dt <- data.table::copy(ped)
+  ped_dt <- data.table::as.data.table(data.table::copy(ped))
   n_original <- nrow(ped_dt)
   
   # Step 1: Create family identifiers
@@ -543,15 +565,16 @@ compact_ped_for_matrix <- function(ped) {
   all_parents <- unique(c(all_sires, all_dams))
   
   # Mark who is a parent
-  ped_dt[, is_parent := Ind %in% all_parents]
+  ped_dt[, IsParent := Ind %in% all_parents]
   
   # Step 5: Identify full-sibling families (family_size >= 2)
   fullsib_families <- ped_dt[!is.na(family_key) & family_size >= 2]
   
   if (nrow(fullsib_families) == 0) {
     # No full-sibling families to compact
+    ped_compact <- data.table::copy(ped)
     return(list(
-      ped_compact = ped_dt,
+      ped_compact = ped_compact,
       compact_map = data.table(
         Ind = ped_dt$Ind,
         IndNum = ped_dt$IndNum,
@@ -582,12 +605,13 @@ compact_ped_for_matrix <- function(ped) {
   # Step 6: For each family, select representative from NON-PARENT members only
   # Parents are NEVER removed and NEVER represent others to avoid identity loss.
   
-  compactable_members <- fullsib_families[is_parent == FALSE]
+  compactable_members <- fullsib_families[IsParent == FALSE]
   
   if (nrow(compactable_members) == 0) {
     # No non-parent full-siblings to compact
+    ped_compact <- data.table::copy(ped)
     return(list(
-      ped_compact = ped_dt,
+      ped_compact = ped_compact,
       compact_map = data.table(
         Ind = ped_dt$Ind,
         IndNum = ped_dt$IndNum,
@@ -651,7 +675,7 @@ compact_ped_for_matrix <- function(ped) {
       Dam = i.Dam,
       FamilyLabel = FamilyLabel,
       FamilySize = FamilySize,
-      is_parent = FALSE,
+      IsParent = FALSE,
       IsRepresentative = (i.Ind == RepInd),
       IsCompacted = TRUE)
   ]
@@ -670,7 +694,7 @@ compact_ped_for_matrix <- function(ped) {
     Dam = non_compacted$Dam,
     FamilyLabel = NA_character_,
     FamilySize = 1L,
-    is_parent = non_compacted$is_parent,
+    IsParent = non_compacted$IsParent,
     IsRepresentative = TRUE,
     IsCompacted = FALSE
   )
@@ -681,7 +705,7 @@ compact_ped_for_matrix <- function(ped) {
   # Step 9: Create compacted pedigree
   # Remove rule: Non-parent AND non-representative individuals
   # Keep rule: All parents + representatives
-  remove_ids <- compact_map[is_parent == FALSE & IsRepresentative == FALSE, OldIndNum]
+  remove_ids <- compact_map[IsParent == FALSE & IsRepresentative == FALSE, OldIndNum]
   ped_compact <- ped_dt[!(IndNum %in% remove_ids)]
   data.table::setorder(ped_compact, IndNum)
   
@@ -741,7 +765,7 @@ compact_ped_for_matrix <- function(ped) {
   }
   
   # Clean up extra columns added during compaction
-  extra_cols <- c("family_key", "family_label", "family_size", "is_parent")
+  extra_cols <- c("family_key", "family_label", "family_size", "IsParent")
   for (col in extra_cols) {
     if (col %in% names(ped_compact)) {
       ped_compact[, (col) := NULL]
@@ -753,7 +777,7 @@ compact_ped_for_matrix <- function(ped) {
   
   # Calculate family compression counts BEFORE tidyped (while we still have compact_map with removed individuals)
   family_compressed_counts <- compact_map[IsCompacted == TRUE, .(
-    n_compressed = sum(is_parent == FALSE & IsRepresentative == FALSE)
+    NCompressed = sum(IsParent == FALSE & IsRepresentative == FALSE)
   ), by = FamilyID]
   
   # CRITICAL: Use tidyped to ensure ped_compact is complete and properly numbered
@@ -762,7 +786,7 @@ compact_ped_for_matrix <- function(ped) {
   
   # Verify Family and FamilySize columns exist in ped_compact
   if (!("Family" %in% names(ped_compact))) {
-    warning("Family field missing in compact pedigree. This may cause issues with vismat grouping.")
+    warning("Family field missing in compact pedigree. This may cause issues with vismat(by = 'Family').")
   }
   
   # After tidyped, rebuild compact_map to include ALL individuals (kept + removed)
@@ -792,7 +816,7 @@ compact_ped_for_matrix <- function(ped) {
       FamilyLabel = FamilyLabel,
       FamilySize = FamilySize,
       IsCompacted = IsCompacted,
-      is_parent = is_parent,
+      IsParent = IsParent,
       IsRepresentative = IsRepresentative)
   ]
   
@@ -803,7 +827,7 @@ compact_ped_for_matrix <- function(ped) {
     FamilyLabel = NA_character_,
     FamilySize = 1L,
     IsCompacted = FALSE,
-    is_parent = TRUE,  # Added by tidyped means they're parents
+    IsParent = TRUE,  # Added by tidyped means they're parents
     IsRepresentative = TRUE
   )]
   
@@ -827,7 +851,7 @@ compact_ped_for_matrix <- function(ped) {
       FamilyLabel,
       FamilySize,
       IsCompacted,
-      is_parent,
+      IsParent,
       IsRepresentative = FALSE  # Removed individuals are never representatives
     )]
     
@@ -881,7 +905,7 @@ compact_ped_for_matrix <- function(ped) {
   # Family size distribution
   family_size_breaks <- c(0, 2, 10, 50, 100, Inf)
   family_size_labels <- c("1", "2-10", "11-50", "51-100", "100+")
-  family_lookup[, size_category := cut(FamilySize, 
+  family_lookup[, SizeCategory := cut(FamilySize, 
                                         breaks = family_size_breaks,
                                         labels = family_size_labels,
                                         right = TRUE)]
@@ -890,7 +914,7 @@ compact_ped_for_matrix <- function(ped) {
     n_families = .N,
     n_individuals_total = sum(FamilySize),
     n_individuals_removed = sum(FamilySize - 1)
-  ), by = size_category]
+  ), by = SizeCategory]
   
   # Ensure result is not a tidyped object (just a data.table)
   class(family_size_dist) <- c("data.table", "data.frame")
@@ -914,14 +938,15 @@ compact_ped_for_matrix <- function(ped) {
   family_summary <- rep_num_mapping[family_summary, on = "RepInd"]
   setnames(family_summary, "NewRepIndNum", "RepIndNum")
   
-  # Add n_compressed column using pre-calculated counts (before tidyped)
+
+  # Add NCompressed column using pre-calculated counts (before tidyped)
   family_summary <- family_compressed_counts[family_summary, on = "FamilyID"]
-  family_summary[is.na(n_compressed), n_compressed := 0L]
+  family_summary[is.na(NCompressed), NCompressed := 0L]
   
   # Reorder columns for clarity
   data.table::setcolorder(family_summary, c("FamilyID", "FamilyLabel", "Sire", "Dam",
                                              "SireNum", "DamNum", "FamilySize", 
-                                             "n_compressed", "RepInd", "RepIndNum", "Gen"))
+                                             "NCompressed", "RepInd", "RepIndNum", "Gen"))
   data.table::setorder(family_summary, FamilyID)
   
   # Ensure result is not a tidyped object
@@ -1130,6 +1155,32 @@ query_relationship <- function(x, id1, id2 = NULL) {
   }
 }
 
+# --------------------------------------------------------------------------
+# Internal helper: sibling off-diagonal value from parent relationships
+# --------------------------------------------------------------------------
+# Computes the relationship value between full-siblings who share the same
+# compact representative. Used by expand_pedmat() and aggregate_compact_by_group().
+#
+# @param A_mat The compact A (additive) matrix.
+# @param sire_idx Integer, row index of the sire in A_mat (0 = unknown).
+# @param dam_idx  Integer, row index of the dam in A_mat (0 = unknown).
+# @param method   Character, one of "A", "D", "AA".
+# @return Numeric scalar: the sibling off-diagonal value.
+calc_sib_offdiag <- function(A_mat, sire_idx, dam_idx, method = "A") {
+  A_ss <- if (sire_idx > 0) A_mat[sire_idx, sire_idx] else 1.0
+  A_dd <- if (dam_idx  > 0) A_mat[dam_idx,  dam_idx]  else 1.0
+  A_sd <- if (sire_idx > 0 && dam_idx > 0) A_mat[sire_idx, dam_idx] else 0.0
+
+  res_A_sib <- 0.25 * (A_ss + A_dd + 2 * A_sd)
+
+  switch(method,
+    "A"  = res_A_sib,
+    "D"  = 0.25 * (A_ss * A_dd + A_sd^2),
+    "AA" = res_A_sib^2,
+    stop(sprintf("Unsupported method '%s' for sibling off-diagonal.", method))
+  )
+}
+
 #' Expand a Compact Pedigree Matrix to Full Dimensions
 #' 
 #' @description
@@ -1172,6 +1223,7 @@ query_relationship <- function(x, id1, id2 = NULL) {
 #' 
 #' @export
 expand_pedmat <- function(x) {
+  # NOTE: sibling off-diagonal correction uses calc_sib_offdiag() below.
   # Check if x is a pedmat (either S3 or S4 with marker)
   is_pedmat <- inherits(x, "pedmat") || !is.null(attr(x, "pedmat_S4"))
   if (!is_pedmat) {
@@ -1230,35 +1282,16 @@ expand_pedmat <- function(x) {
         
         if (!is.null(A_mat)) {
           for (rep_idx in reps_with_sibs) {
-            # Find parents (all siblings share same parents)
             first_idx <- which(map_ordered$RepIndNum == rep_idx)[1]
             s_idx <- map_ordered$SireNum[first_idx]
             d_idx <- map_ordered$DamNum[first_idx]
             
-            # Use parent relationships to calculate sibling relationship
-            A_ss <- if (s_idx > 0) A_mat[s_idx, s_idx] else 1.0
-            A_dd <- if (d_idx > 0) A_mat[d_idx, d_idx] else 1.0
-            A_sd <- if (s_idx > 0 && d_idx > 0) A_mat[s_idx, d_idx] else 0.0
+            sib_val <- calc_sib_offdiag(A_mat, s_idx, d_idx, primary_method)
             
-            # Sibling A value: 0.25 * (A_ss + A_dd + 2*A_sd)
-            res_A_sib <- 0.25 * (A_ss + A_dd + 2 * A_sd)
-            
-            # Value for current method
-            sib_val <- switch(primary_method,
-              "A" = res_A_sib,
-              "D" = 0.25 * (A_ss * A_dd + A_sd^2),
-              "AA" = res_A_sib^2
-            )
-            
-            # Identify all indices for this representative
             member_indices <- which(map_ordered$RepIndNum == rep_idx)
-            
-            # Update the off-diagonal elements in this sub-block
-            # Note: diagonal remains mat[rep_idx, rep_idx]
             if (length(member_indices) > 1) {
               diag_val <- mat[rep_idx, rep_idx]
               result_full[member_indices, member_indices] <- sib_val
-              # Restore diagonal
               diag_indices <- cbind(member_indices, member_indices)
               result_full[diag_indices] <- diag_val
             }
@@ -1357,10 +1390,13 @@ summary_pedmat <- function(x) {
       }
     }, error = function(e) NA_real_)
     
-    stats$sparsity <- if (inherits(obj_clean, "sparseMatrix")) {
+    stats$sparsity <- if (inherits(obj_clean, "Matrix")) {
+      # Works for both sparseMatrix (e.g. dgCMatrix) and dense Matrix (e.g. dgeMatrix).
+      # speed branch returns dgeMatrix for A/D/AA to avoid the N² zero-scan
+      # overhead of Matrix::Matrix(..., sparse=TRUE); nnzero() handles both cases.
       Matrix::nnzero(obj_clean) / (as.numeric(nrow(obj_clean)) * ncol(obj_clean))
-    } else if (is.matrix(obj_clean) || inherits(obj_clean, "Matrix")) {
-      1.0
+    } else if (is.matrix(obj_clean)) {
+      sum(obj_clean != 0L) / length(obj_clean)
     } else { NA_real_ }
   }
   

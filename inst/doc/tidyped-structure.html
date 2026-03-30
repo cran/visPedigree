@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>6. tidyped Class Structure and Extension Notes</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">6. tidyped Class Structure and Extension
+Notes</h1>
+
+
+
+<p>This document describes the structural contract of the
+<code>tidyped</code> class in visPedigree 1.8.0. It is intended for
+maintenance and extension work.</p>
+<div id="class-identity" class="section level2">
+<h2>1. Class identity</h2>
+<p><code>tidyped</code> is an S3 class layered on top of
+<code>data.table</code>.</p>
+<p>Expected class vector:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">c</span>(<span class="st">&quot;tidyped&quot;</span>, <span class="st">&quot;data.table&quot;</span>, <span class="st">&quot;data.frame&quot;</span>)</span></code></pre></div>
+<p>The class is created through <code>new_tidyped()</code> (internal
+constructor) and checked with <code>is_tidyped()</code>.</p>
+</div>
+<div id="core-design-goals" class="section level2">
+<h2>2. Core design goals</h2>
+<p><code>tidyped</code> is designed to be:</p>
+<ol style="list-style-type: decimal">
+<li><strong>safe for C++</strong>: integer pedigree indices
+(<code>IndNum</code>, <code>SireNum</code>, <code>DamNum</code>) are
+always aligned with row order, so C++ routines can index directly
+without translation;</li>
+<li><strong>fast for large pedigrees</strong>: the fast path skips
+redundant validation when the input is already a
+<code>tidyped</code>;</li>
+<li><strong>compatible with <code>data.table</code></strong>: in-place
+modification via <code>:=</code> and <code>set()</code> preserves class
+and metadata without copying;</li>
+<li><strong>explicit about structural degradation</strong>: row subsets
+that break pedigree completeness are downgraded to plain
+<code>data.table</code> with a warning.</li>
+</ol>
+</div>
+<div id="the-head-invariant-indnum-row-index" class="section level2">
+<h2>3. The head invariant: IndNum == row index</h2>
+<p>The single most important structural rule in visPedigree:</p>
+<blockquote>
+<p><strong><code>IndNum[i]</code> must equal <code>i</code> for every
+row.</strong></p>
+</blockquote>
+<p>This means <code>SireNum</code> and <code>DamNum</code> are direct
+row pointers: the sire of individual <code>i</code> lives at row
+<code>SireNum[i]</code>, and <code>0L</code> encodes a missing
+parent.</p>
+<p>Every C++ function in visPedigree — inbreeding coefficients,
+relationship matrices, BFS tracing, topological sorting — relies on this
+invariant. If it breaks, C++ will read wrong parents.</p>
+<p>This invariant is enforced at three levels:</p>
+<ul>
+<li><strong><code>tidyped()</code></strong>: builds indices from scratch
+during construction.</li>
+<li><strong><code>[.tidyped</code></strong>: rebuilds indices in-place
+after valid row subsets.</li>
+<li><strong><code>ensure_tidyped()</code> /
+<code>ensure_complete_tidyped()</code></strong>: detect and repair stale
+indices when class was accidentally dropped.</li>
+</ul>
+</div>
+<div id="column-contract" class="section level2">
+<h2>4. Column contract</h2>
+<div id="minimal-structural-columns" class="section level3">
+<h3>4.1 Minimal structural columns</h3>
+<p>These four columns define a valid <code>tidyped</code>:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>Ind</code></td>
+<td>character</td>
+<td>Unique individual ID</td>
+</tr>
+<tr class="even">
+<td><code>Sire</code></td>
+<td>character</td>
+<td>Sire ID, <code>NA</code> for unknown</td>
+</tr>
+<tr class="odd">
+<td><code>Dam</code></td>
+<td>character</td>
+<td>Dam ID, <code>NA</code> for unknown</td>
+</tr>
+<tr class="even">
+<td><code>Sex</code></td>
+<td>character</td>
+<td><code>&quot;male&quot;</code>, <code>&quot;female&quot;</code>, or
+<code>&quot;unknown&quot;</code></td>
+</tr>
+</tbody>
+</table>
+<p>Checked by <code>validate_tidyped()</code>.</p>
+</div>
+<div id="integer-pedigree-columns" class="section level3">
+<h3>4.2 Integer pedigree columns</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>IndNum</code></td>
+<td>integer</td>
+<td>Row index (== row number, see §3)</td>
+</tr>
+<tr class="even">
+<td><code>SireNum</code></td>
+<td>integer</td>
+<td>Row index of sire, <code>0L</code> for missing</td>
+</tr>
+<tr class="odd">
+<td><code>DamNum</code></td>
+<td>integer</td>
+<td>Row index of dam, <code>0L</code> for missing</td>
+</tr>
+</tbody>
+</table>
+<p>These exist whenever <code>tidyped()</code> is called with
+<code>addnum = TRUE</code> (default). They are the interface between R
+and C++.</p>
+</div>
+<div id="other-common-columns" class="section level3">
+<h3>4.3 Other common columns</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>Gen</code></td>
+<td>Generation number</td>
+</tr>
+<tr class="even">
+<td><code>Family</code></td>
+<td>Family group code</td>
+</tr>
+<tr class="odd">
+<td><code>FamilySize</code></td>
+<td>Number of offspring in the family</td>
+</tr>
+<tr class="even">
+<td><code>Cand</code></td>
+<td><code>TRUE</code> for candidate individuals</td>
+</tr>
+<tr class="odd">
+<td><code>f</code></td>
+<td>Inbreeding coefficient (added by <code>inbreed()</code>)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="column-naming-convention" class="section level3">
+<h3>4.4 Column naming convention</h3>
+<p>All data columns use <strong>PascalCase</strong> (<code>Ind</code>,
+<code>SireNum</code>, <code>MeanF</code>, <code>ECG</code>), matching
+the core column style.</p>
+</div>
+</div>
+<div id="metadata-layer" class="section level2">
+<h2>5. Metadata layer</h2>
+<p>Pedigree-level metadata is stored in a single attribute:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">attr</span>(x, <span class="st">&quot;ped_meta&quot;</span>)</span></code></pre></div>
+<p>Built by <code>build_ped_meta()</code>, accessed by
+<code>pedmeta()</code>.</p>
+<table>
+<colgroup>
+<col width="27%" />
+<col width="15%" />
+<col width="56%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>selfing</code></td>
+<td>logical</td>
+<td>Whether self-fertilization mode was used</td>
+</tr>
+<tr class="even">
+<td><code>bisexual_parents</code></td>
+<td>character</td>
+<td>IDs appearing as both sire and dam</td>
+</tr>
+<tr class="odd">
+<td><code>genmethod</code></td>
+<td>character</td>
+<td><code>&quot;top&quot;</code> or <code>&quot;bottom&quot;</code> generation
+numbering</td>
+</tr>
+</tbody>
+</table>
+<p>No other pedigree-level attributes should be added outside
+<code>ped_meta</code>.</p>
+</div>
+<div id="structural-invariants" class="section level2">
+<h2>6. Structural invariants</h2>
+<p>The following invariants must hold for a valid
+<code>tidyped</code>:</p>
+<ol style="list-style-type: decimal">
+<li><strong>IndNum == row index</strong> (see §3).</li>
+<li><strong>Ind is unique</strong> — no duplicate individual IDs.</li>
+<li><strong>Completeness</strong> — every non-<code>NA</code> Sire and
+Dam appears in <code>Ind</code>.</li>
+<li><strong>Acyclicity</strong> — no individual is its own
+ancestor.</li>
+<li><strong>SireNum / DamNum consistency</strong> — <code>0L</code> for
+missing parents, valid row indices otherwise.</li>
+<li><strong>ped_meta is the sole metadata container</strong> — no
+scattered attributes.</li>
+</ol>
+<p>Invariants 1–5 are established by <code>tidyped()</code> and guarded
+by <code>[.tidyped</code>. Invariant 6 is a development convention.</p>
+</div>
+<div id="constructor-pipeline" class="section level2">
+<h2>7. Constructor pipeline</h2>
+<p><code>tidyped()</code> currently has two distinct tracing paths:</p>
+<ul>
+<li><strong>Raw-input path</strong> (<code>data.frame</code> /
+<code>data.table</code>) — uses igraph for loop detection, candidate
+tracing, and topological sorting before integer indices are
+finalized.</li>
+<li><strong>Fast path</strong> (<code>tidyped</code> +
+<code>cand</code>) — skips graph rebuilding and uses C++ for candidate
+tracing and topological sorting on existing integer pedigree
+indices.</li>
+</ul>
+<div id="full-path-tidypedraw_input" class="section level3">
+<h3>7.1 Full path: <code>tidyped(raw_input)</code></h3>
+<p>When the input is a raw <code>data.frame</code> or
+<code>data.table</code>:</p>
+<ol style="list-style-type: decimal">
+<li><code>validate_and_prepare_ped()</code> — normalize IDs, detect
+duplicates and bisexual parents, inject missing founders.</li>
+<li>Loop detection — igraph builds a directed graph and checks
+<code>is_dag()</code>; <code>which_loop()</code> and
+<code>shortest_paths()</code> are used only on the error path to report
+informative loop diagnostics.</li>
+<li>Candidate tracing — if <code>cand</code> is supplied, igraph
+neighborhood search is used on the raw-input path.</li>
+<li>Topological sort — igraph <code>topo_sort()</code> on the raw-input
+path.</li>
+<li>Generation assignment — C++ (<code>cpp_assign_generations_top</code>
+/ <code>cpp_assign_generations_bottom</code>) using the pedigree implied
+by the sorted rows.</li>
+<li>Sex inference — resolve unknowns from parental roles.</li>
+<li>Build integer indices — <code>IndNum</code>, <code>SireNum</code>,
+<code>DamNum</code>.</li>
+<li><code>new_tidyped()</code> + attach <code>ped_meta</code>.</li>
+</ol>
+</div>
+<div id="fast-path-tidypedtp-cand-ids" class="section level3">
+<h3>7.2 Fast path: <code>tidyped(tp, cand = ids)</code></h3>
+<p>When the input is already a <code>tidyped</code> <strong>and</strong>
+<code>cand</code> is supplied:</p>
+<ul>
+<li><strong>Skipped</strong>: ID validation, loop detection, sex
+inference, founder injection.</li>
+<li><strong>Executed</strong>: C++ BFS tracing → C++ topo sort → C++
+generation assignment → rebuild indices → <code>new_tidyped()</code> +
+<code>ped_meta</code>.</li>
+</ul>
+<p>The fast path is the preferred workflow for repeated local tracing
+from a previously validated master pedigree:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>tp_master <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(raw_ped)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>tp_local  <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(tp_master, <span class="at">cand =</span> ids, <span class="at">trace =</span> <span class="st">&quot;up&quot;</span>, <span class="at">tracegen =</span> <span class="dv">3</span>)</span></code></pre></div>
+</div>
+<div id="new_tidyped-internal-constructor" class="section level3">
+<h3>7.3 <code>new_tidyped()</code> — internal constructor</h3>
+<p><code>new_tidyped()</code> attaches the <code>&quot;tidyped&quot;</code> class
+via <code>setattr()</code> (no copy) and clears data.table’s invisible
+flag via <code>x[]</code>. It does <strong>not</strong> attach
+<code>ped_meta</code> — that is the caller’s responsibility. It should
+only be called when the caller has already ensured structural
+validity.</p>
+</div>
+</div>
+<div id="three-tier-guard-system" class="section level2">
+<h2>8. Three-tier guard system</h2>
+<p>Analysis functions must guard their inputs. visPedigree provides
+three guard levels, chosen based on what each function needs.</p>
+<div id="validate_tidyped-visualization-guard" class="section level3">
+<h3>8.1 <code>validate_tidyped()</code> — visualization guard</h3>
+<ul>
+<li>Attempts silent class recovery via
+<code>ensure_tidyped()</code>.</li>
+<li>Checks only that <code>Ind</code>, <code>Sire</code>,
+<code>Dam</code>, <code>Sex</code> exist.</li>
+<li><strong>Does not require</strong> pedigree completeness.</li>
+<li>Used by: <code>visped()</code>, <code>plot.tidyped()</code>,
+<code>summary.tidyped()</code>.</li>
+</ul>
+</div>
+<div id="ensure_tidyped-structure-light-guard" class="section level3">
+<h3>8.2 <code>ensure_tidyped()</code> — structure-light guard</h3>
+<ul>
+<li>If already <code>tidyped</code>: returns as-is.</li>
+<li>If class was dropped but 8 core columns (<code>Ind</code>,
+<code>Sire</code>, <code>Dam</code>, <code>Sex</code>, <code>Gen</code>,
+<code>IndNum</code>, <code>SireNum</code>, <code>DamNum</code>) are
+present: rebuilds <code>IndNum</code> if stale, restores class, emits a
+message.</li>
+<li><strong>Does not check</strong> pedigree completeness.</li>
+<li>Used by: <code>pedsubpop()</code>, <code>splitped()</code>,
+<code>pedne(method = &quot;demographic&quot;)</code>,
+<code>pedstats(ecg = FALSE, genint = FALSE)</code>,
+<code>pedfclass()</code> (when <code>f</code> column already
+exists).</li>
+</ul>
+</div>
+<div id="ensure_complete_tidyped-complete-pedigree-guard" class="section level3">
+<h3>8.3 <code>ensure_complete_tidyped()</code> — complete-pedigree
+guard</h3>
+<ul>
+<li>Everything <code>ensure_tidyped()</code> does,
+<strong>plus</strong>:</li>
+<li>Calls <code>require_complete_pedigree()</code> — verifies that every
+non-<code>NA</code> Sire/Dam is present in <code>Ind</code>. Stops with
+an error if not.</li>
+<li>Required by any function that recurses through pedigree structure in
+C++.</li>
+<li>Used by: <code>inbreed()</code>, <code>pedecg()</code>,
+<code>pedgenint()</code>, <code>pedrel()</code>,
+<code>pedne(method = &quot;inbreeding&quot; | &quot;coancestry&quot;)</code>,
+<code>pedcontrib()</code>, <code>pedancestry()</code>,
+<code>pedfclass()</code> (when <code>f</code> must be computed),
+<code>pedpartial()</code>, <code>pediv()</code>, <code>pedmat()</code>,
+<code>pedhalflife()</code>.</li>
+</ul>
+</div>
+<div id="choosing-the-right-guard" class="section level3">
+<h3>8.4 Choosing the right guard</h3>
+<table>
+<colgroup>
+<col width="28%" />
+<col width="16%" />
+<col width="23%" />
+<col width="30%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Guard</th>
+<th align="center">Recovers class?</th>
+<th align="center">Requires completeness?</th>
+<th>When to use</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>validate_tidyped()</code></td>
+<td align="center">yes</td>
+<td align="center">no</td>
+<td>Visualization</td>
+</tr>
+<tr class="even">
+<td><code>ensure_tidyped()</code></td>
+<td align="center">yes</td>
+<td align="center">no</td>
+<td>Summaries on existing columns</td>
+</tr>
+<tr class="odd">
+<td><code>ensure_complete_tidyped()</code></td>
+<td align="center">yes</td>
+<td align="center"><strong>yes</strong></td>
+<td>Pedigree recursion in C++</td>
+</tr>
+</tbody>
+</table>
+<p>Some functions are <strong>conditionally guarded</strong>: they use
+<code>ensure_tidyped()</code> by default but escalate to
+<code>ensure_complete_tidyped()</code> when a parameter triggers
+pedigree recursion (for example <code>pedstats(ecg = TRUE)</code>,
+<code>pedne(method = &quot;coancestry&quot;)</code>).</p>
+</div>
+</div>
+<div id="safe-subsetting-contract" class="section level2">
+<h2>9. Safe subsetting contract</h2>
+<p><code>[.tidyped</code> is the key protection layer.</p>
+<div id="operations" class="section level3">
+<h3>9.1 <code>:=</code> operations</h3>
+<p>Modify-by-reference is passed through safely. Class and metadata are
+preserved via <code>setattr()</code>. No copy occurs.</p>
+</div>
+<div id="column-only-selections" class="section level3">
+<h3>9.2 Column-only selections</h3>
+<p>If the selection removes core pedigree columns, the result is
+returned as a plain <code>data.table</code> without warning.</p>
+</div>
+<div id="row-subsets" class="section level3">
+<h3>9.3 Row subsets</h3>
+<p>After row subsetting, <code>[.tidyped</code> checks pedigree
+completeness:</p>
+<ul>
+<li><strong>Complete subset</strong> (all referenced parents still
+present): <code>IndNum</code>, <code>SireNum</code>, <code>DamNum</code>
+are rebuilt in-place, class and <code>ped_meta</code> are
+preserved.</li>
+<li><strong>Incomplete subset</strong> (parent records missing): result
+is downgraded to plain <code>data.table</code> with a warning guiding
+the user to <code>tidyped(tp, cand = ids, trace = &quot;up&quot;)</code>.</li>
+</ul>
+<p>This downgrade is deliberate. It prevents stale integer indices from
+reaching C++ routines.</p>
+</div>
+</div>
+<div id="computational-boundaries-c-vs-igraph" class="section level2">
+<h2>10. Computational boundaries: C++ vs igraph</h2>
+<p>visPedigree delegates heavy pedigree recursion to C++ and uses igraph
+where a graph object is still the simplest representation.</p>
+<div id="c-core-computation-path" class="section level3">
+<h3>10.1 C++ — core computation path</h3>
+<table>
+<colgroup>
+<col width="36%" />
+<col width="63%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>C++ function</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Ancestry / descendant tracing</td>
+<td><code>cpp_trace_ancestors</code>,
+<code>cpp_trace_descendants</code></td>
+</tr>
+<tr class="even">
+<td>Topological sorting</td>
+<td><code>cpp_topo_order</code></td>
+</tr>
+<tr class="odd">
+<td>Generation assignment</td>
+<td><code>cpp_assign_generations_top</code>,
+<code>cpp_assign_generations_bottom</code></td>
+</tr>
+<tr class="even">
+<td>Inbreeding coefficients</td>
+<td><code>cpp_calculate_inbreeding</code> (Meuwissen &amp; Luo)</td>
+</tr>
+<tr class="odd">
+<td>Relationship matrices</td>
+<td><code>cpp_addmat</code>, <code>cpp_dommat</code>,
+<code>cpp_aamat</code>, <code>cpp_ainv</code></td>
+</tr>
+</tbody>
+</table>
+<p>All C++ functions consume <code>SireNum</code> / <code>DamNum</code>
+integer vectors and assume the head invariant (§3).</p>
+</div>
+<div id="igraph-graph-specific-tasks" class="section level3">
+<h3>10.2 igraph — graph-specific tasks</h3>
+<table>
+<colgroup>
+<col width="22%" />
+<col width="28%" />
+<col width="49%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Where</th>
+<th>igraph functions</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Pedigree visualization</td>
+<td><code>visped()</code> pipeline</td>
+<td><code>graph_from_data_frame</code>,
+<code>layout_with_sugiyama</code>, <code>plot.igraph</code></td>
+</tr>
+<tr class="even">
+<td>Connected components</td>
+<td><code>splitped()</code></td>
+<td><code>graph_from_edgelist</code>, <code>components</code></td>
+</tr>
+<tr class="odd">
+<td>Loop detection</td>
+<td><code>tidyped()</code> raw-input path</td>
+<td><code>graph_from_edgelist</code>, <code>is_dag</code></td>
+</tr>
+<tr class="even">
+<td>Loop diagnosis</td>
+<td><code>tidyped()</code> error path</td>
+<td><code>which_loop</code>, <code>shortest_paths</code>,
+<code>neighbors</code>, <code>components</code></td>
+</tr>
+<tr class="odd">
+<td>Candidate tracing</td>
+<td><code>tidyped()</code> raw-input path</td>
+<td><code>neighborhood</code></td>
+</tr>
+<tr class="even">
+<td>Topological sorting</td>
+<td><code>tidyped()</code> raw-input path</td>
+<td><code>topo_sort</code></td>
+</tr>
+</tbody>
+</table>
+<p>igraph is not used in the core numerical pedigree analysis routines
+such as <code>inbreed()</code>, <code>pedmat()</code>,
+<code>pedecg()</code>, or <code>pedrel()</code>, but it is still part of
+the preprocessing and visualization stack.</p>
+</div>
+</div>
+<div id="extension-rules" class="section level2">
+<h2>11. Extension rules</h2>
+<p>When extending the class, follow these rules.</p>
+<div id="do-not-add-new-pedigree-level-attributes" class="section level3">
+<h3>11.1 Do not add new pedigree-level attributes</h3>
+<p>Prefer adding fields to <code>ped_meta</code> instead of scattering
+new standalone attributes.</p>
+</div>
+<div id="keep-computed-state-derivable" class="section level3">
+<h3>11.2 Keep computed state derivable</h3>
+<p>If a column can be rebuilt from pedigree structure, prefer derivation
+over storing opaque cached state.</p>
+</div>
+<div id="preserve-data.table-semantics" class="section level3">
+<h3>11.3 Preserve <code>data.table</code> semantics</h3>
+<p>Use <code>:=</code>, <code>set()</code>, and <code>setattr()</code>
+carefully. Avoid patterns that trigger full copies unless
+unavoidable.</p>
+</div>
+<div id="respect-downgrade-semantics" class="section level3">
+<h3>11.4 Respect downgrade semantics</h3>
+<p>Any future method that subsets rows must preserve the current
+rule:</p>
+<p>valid complete subset -&gt; <code>tidyped</code>; incomplete subset
+-&gt; plain <code>data.table</code>.</p>
+</div>
+<div id="document-c-assumptions" class="section level3">
+<h3>11.5 Document C++ assumptions</h3>
+<p>Any feature using <code>IndNum</code>, <code>SireNum</code>, or
+<code>DamNum</code> should document whether it requires:</p>
+<ul>
+<li>topologically ordered rows,</li>
+<li>dense consecutive indices,</li>
+<li><code>0L</code> encoding for missing parents.</li>
+</ul>
+</div>
+</div>
+<div id="user-facing-inspection-helpers" class="section level2">
+<h2>12. User-facing inspection helpers</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Function</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>is_tidyped(x)</code></td>
+<td><code>TRUE</code> if class is present</td>
+</tr>
+<tr class="even">
+<td><code>is_complete_pedigree(x)</code></td>
+<td><code>TRUE</code> if all Sire/Dam are in Ind</td>
+</tr>
+<tr class="odd">
+<td><code>pedmeta(x)</code></td>
+<td>The <code>ped_meta</code> named list</td>
+</tr>
+<tr class="even">
+<td><code>has_inbreeding(x)</code></td>
+<td><code>TRUE</code> if <code>f</code> column exists</td>
+</tr>
+<tr class="odd">
+<td><code>has_candidates(x)</code></td>
+<td><code>TRUE</code> if <code>Cand</code> column exists</td>
+</tr>
+</tbody>
+</table>
+<p>Future extensions should prefer helper functions over direct
+attribute access.</p>
+</div>
+<div id="maintenance-checklist" class="section level2">
+<h2>13. Maintenance checklist</h2>
+<p>Before merging a structural change to <code>tidyped</code>,
+check:</p>
+<ol style="list-style-type: decimal">
+<li>Does class identity remain
+<code>c(&quot;tidyped&quot;, &quot;data.table&quot;, &quot;data.frame&quot;)</code>?</li>
+<li>Is the head invariant <code>IndNum == row index</code> preserved
+after every code path?</li>
+<li>Are <code>ped_meta</code> fields preserved correctly?</li>
+<li>Does <code>[.tidyped</code> still handle <code>:=</code> without
+copy issues?</li>
+<li>Do incomplete row subsets still downgrade with warning?</li>
+<li>Are integer pedigree columns rebuilt whenever a subset remains
+valid?</li>
+<li>Does <code>tidyped(tp_master, cand = ...)</code> match the full path
+result?</li>
+<li>After <code>setorder()</code> or <code>merge()</code>, are indices
+rebuilt before reaching C++?</li>
+<li>Do package tests and vignettes build cleanly?</li>
+</ol>
+</div>
+<div id="recommended-workflow" class="section level2">
+<h2>14. Recommended workflow</h2>
+<p>For large pedigrees, the intended usage pattern is:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="co"># build one validated master pedigree</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>tp_master <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(raw_ped)</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co"># reuse it for repeated local tracing (fast path)</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>tp_local <span class="ot">&lt;-</span> <span class="fu">tidyped</span>(tp_master, <span class="at">cand =</span> ids, <span class="at">trace =</span> <span class="st">&quot;up&quot;</span>, <span class="at">tracegen =</span> <span class="dv">3</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co"># modify analysis columns in place</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>tp_master[, phenotype <span class="sc">:=</span> pheno]</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co"># split only when disconnected components matter</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>parts <span class="ot">&lt;-</span> <span class="fu">splitped</span>(tp_master)</span></code></pre></div>
+<p>This keeps workflows explicit, fast, and safe.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

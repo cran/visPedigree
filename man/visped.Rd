@@ -17,6 +17,7 @@ visped(
   pagewidth = 200,
   symbolsize = 1,
   maxiter = 1000,
+  genlab = FALSE,
   ...
 )
 }
@@ -45,13 +46,15 @@ For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "
 
 \item{trace}{A logical value or a character string. If TRUE, all ancestors and descendants of the individuals specified in \code{highlight} will be highlighted. If a character string, it specifies the tracing direction: "\strong{up}" (ancestors), "\strong{down}" (descendants), or "\strong{all}" (union of ancestors and descendants). This is useful for focusing on specific families within a large pedigree. The default value is FALSE.}
 
-\item{showf}{A logical value indicating whether inbreeding coefficients will be shown in the graph. If \code{showf = TRUE} and the column \strong{f} exists in the pedigree, the inbreeding coefficient will be appended to the individual label, e.g., "ID (0.05)". The default value is FALSE.}
+\item{showf}{A logical value indicating whether inbreeding coefficients will be shown in the graph. If \code{showf = TRUE} and the column \strong{f} is missing, \code{visped()} will try to compute it automatically with \code{\link{inbreed}} on a structurally complete pedigree. If automatic computation is not possible, a warning is issued and labels are drawn without \strong{f}. The default value is FALSE.}
 
 \item{pagewidth}{A numeric value specifying the width of the PDF file in inches. This controls the horizontal scaling of the layout. The default value is 200.}
 
 \item{symbolsize}{A numeric value specifying the scaling factor for node size relative to the label size. Values greater than 1 increase the node size (adding padding around the label), while values less than 1 decrease it. This is useful for fine-tuning the whitespace and legibility of dense graphs. The default value is 1.}
 
 \item{maxiter}{An integer specifying the maximum number of iterations for the Sugiyama layout algorithm to minimize edge crossings. Higher values (e.g., 2000 or 5000) may result in fewer crossed lines for complex pedigrees but will increase computation time. The default value is 1000.}
+
+\item{genlab}{A logical value indicating whether generation labels (G1, G2, ...) will be drawn on the left margin of the pedigree graph. This helps identify the generation of each row of nodes, especially in deep pedigrees with many generations. The default value is FALSE.}
 
 \item{...}{Additional arguments passed to \code{\link[igraph:plot.igraph]{plot.igraph}}.}
 }
@@ -68,7 +71,7 @@ Rendering is performed using a Two-Pass strategy: edges are drawn first to ensur
 
 This function can draw the graph of a very large pedigree (> 10,000 individuals per generation) by compacting full-sib individuals. It is highly effective for aquatic animal pedigrees, which usually include many full-sib families per generation in nucleus breeding populations. The outline of a pedigree without individual labels is still shown if the width of a pedigree graph exceeds the maximum width (500 inches) of the PDF file.
 
-In the graph, two shapes and three colors are used. Circles represent individuals, and squares represent families. Dark sky blue indicates males, dark goldenrod indicates females, and dark olive green indicates unknown sex. For example, a dark sky blue circle represents a male individual; a dark goldenrod square represents all female individuals in a full-sib family when \code{compact = TRUE}.
+In the graph, two shapes and four colors are used. Circles represent individuals, and squares represent families. Dark sky blue indicates males, dark goldenrod indicates females, purple indicates monoecious individuals (common in plant breeding, where the same individual serves as both male and female parent), and dark olive green indicates unknown sex. For example, a dark sky blue circle represents a male individual; a dark goldenrod square represents all female individuals in a full-sib family when \code{compact = TRUE}.
 }
 \note{
 Isolated individuals (those with no parents and no progeny, assigned Gen 0) are automatically filtered out and not shown in the plot. A message will be issued if any such individuals are removed.
@@ -94,6 +97,12 @@ simple_ped_tidy_inbreed <- tidyped(simple_ped, inbreed = TRUE)
 visped(simple_ped_tidy_inbreed,
        showf = TRUE, 
        cex=0.25, 
+       symbolsize=5.5)
+
+# visped() will automatically compute inbreeding coefficients if 'f' is missing
+visped(simple_ped_tidy,
+       showf = TRUE,
+       cex=0.25,
        symbolsize=5.5)
 
 # Adjusting page width and symbol size for better layout

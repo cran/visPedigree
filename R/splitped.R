@@ -66,14 +66,8 @@
 #'
 #' @export
 splitped <- function(ped) {
-  # Input validation: must be a tidyped object
-  if (!inherits(ped, "tidyped")) {
-    stop("ped must be a tidyped object. Use tidyped() first to tidy the pedigree.")
-  }
-
-  if (!all(c("IndNum", "SireNum", "DamNum", "Gen") %in% names(ped))) {
-    stop("ped must contain IndNum, SireNum, DamNum, Gen columns (tidyped format)")
-  }
+  # Input validation: ensure tidyped class (auto-recover if possible)
+  ped <- ensure_tidyped(ped)
 
   # Copy to avoid modifying original
   ped <- data.table::copy(ped)
@@ -209,12 +203,18 @@ retidy_subset <- function(ped) {
       SireNum = rep(0L, n),
       DamNum = rep(0L, n)
     )
-    class(result) <- c("tidyped", "data.table", "data.frame")
+    result <- new_tidyped(result)
+    meta <- attr(ped, "ped_meta")
+    if (!is.null(meta)) data.table::setattr(result, "ped_meta", meta)
     return(result)
   }
 
+  # Propagate selfing attribute if present in the original pedigree
+  meta <- attr(ped, "ped_meta")
+  selfing_val <- if (!is.null(meta)) isTRUE(meta$selfing) else FALSE
+  
   # Call tidyped to properly recalculate Gen, IndNum, SireNum, DamNum
-  tidyped(basic_ped)
+  tidyped(basic_ped, selfing = selfing_val)
 }
 
 # Build result from group membership vector

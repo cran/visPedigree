@@ -111,7 +111,7 @@ Key features:
   \item \code{\link{query_relationship}(x, id1, id2)}: Query any individual
         pair, including merged siblings (automatic lookup)
   \item \code{\link{expand_pedmat}(x)}: Restore full matrix dimensions
-  \item \code{\link{vismat}(x)}: Visualize directly (auto-detects compact)
+  \item \code{\link{vismat}(x)}: Visualize directly (auto-expands compact)
 }
 
 \strong{Performance Notes:}
@@ -174,7 +174,7 @@ AA <- pedmat(tped, method = "AA")
 \dontrun{
 vismat(A)                       # Heatmap of relationship matrix
 vismat(A_compact)               # Works with compact matrices
-vismat(A, grouping = "Gen")     # Group by generation
+vismat(A, by = "Gen")     # Group by generation
 }
 
 }

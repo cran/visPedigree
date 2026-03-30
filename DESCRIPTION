@@ -1,25 +1,28 @@
 Package: visPedigree
 Type: Package
-Title: Tidying and Visualizing Animal Pedigrees
-Version: 1.0.1
+Title: Tidying, Analysis, and Fast Visualization of Animal and Plant
+        Pedigrees
+Version: 1.8.1
 Authors@R: person("Sheng","Luan", email="luansheng@gmail.com", role = c("aut","cre"))
-Description: Built on graph theory and the high-performance 'data.table' framework, 
-    this package provides a comprehensive suite of tools for tidying, analyzing, 
-    and visualizing animal pedigrees. By modeling pedigrees as directed acyclic 
-    graphs using 'igraph', it ensures robust loop detection, efficient 
-    generation assignment, and optimal sub-population splitting. Key features 
-    include standardizing pedigree formats, flexible ancestry tracing, and 
-    generating legible vector-based PDF graphs. A unique compaction algorithm 
-    enables the visualization of massive pedigrees by grouping full-sib families. 
-    Furthermore, the package implements high-performance C++ algorithms for 
-    calculating and visualizing genetic relationship matrices (A, D, AA, and 
-    their inverses) and inbreeding coefficients.
-License: MIT + file LICENSE
+Description: Provides tools for the analysis and visualization of animal and
+    plant pedigrees. Analytical methods include equivalent complete generations,
+    generation intervals, effective population size (via inbreeding, coancestry,
+    and demographic approaches), founder and ancestor contributions, partial
+    inbreeding, genetic diversity indices, and additive (A), dominance (D), and
+    epistatic (AA) relationship matrices. Core algorithms — ancestry tracing,
+    topological sorting, inbreeding coefficients, and matrix construction — are
+    implemented in C++ ('Rcpp', 'RcppArmadillo') and 'data.table', scaling to
+    pedigrees with over one million individuals. Pedigree graphs are rendered
+    via 'igraph' with support for compact full-sib family display; relationship
+    matrices can be visualized as heatmaps. Supports complex mating systems,
+    including selfing and pedigrees in which the same individual can appear as
+    both sire and dam.
+License: GPL-3
 Encoding: UTF-8
 LazyData: true
 Depends: R (>= 4.1.0)
-Imports: data.table (>= 1.14.0), igraph (>= 1.3.0), Matrix, Rcpp,
-        lattice
+Imports: data.table (>= 1.14.0), igraph (>= 1.3.0), Matrix, methods,
+        Rcpp, lattice
 LinkingTo: Rcpp, RcppArmadillo
 Suggests: nadiv (>= 2.18.0), testthat (>= 3.0.0), knitr, rmarkdown
 URL: https://github.com/luansheng/visPedigree,
@@ -29,8 +32,8 @@ VignetteBuilder: knitr
 Config/testthat/edition: 3
 RoxygenNote: 7.3.3
 NeedsCompilation: yes
-Packaged: 2026-02-23 04:49:51 UTC; luansheng
+Packaged: 2026-03-30 00:46:38 UTC; luansheng
 Author: Sheng Luan [aut, cre]
 Maintainer: Sheng Luan <luansheng@gmail.com>
 Repository: CRAN
-Date/Publication: 2026-02-23 08:30:02 UTC
+Date/Publication: 2026-03-30 07:30:03 UTC

@@ -118,3 +118,33 @@ summary(sub_pedigrees)
 # Access a specific sub-pedigree
 # first_sub <- sub_pedigrees[[1]]
 
+## ----plant-selfing------------------------------------------------------------
+library(data.table)
+
+# A plant pedigree with self-fertilization:
+# P1 (male) × P2 (female) → F1
+# F1 selfs → F2_1, F2_2
+# F2_1 selfs → F3
+plant_ped <- data.table(
+  Ind  = c("P1", "P2", "F1", "F2_1", "F2_2", "F3"),
+  Sire = c(NA,   NA,   "P1", "F1",   "F1",   "F2_1"),
+  Dam  = c(NA,   NA,   "P2", "F1",   "F1",   "F2_1")
+)
+
+# Without selfing = TRUE: error — F1 and F2_1 appear as both Sire and Dam
+try(tidyped(plant_ped))
+
+## ----plant-selfing-tidy-------------------------------------------------------
+tp_plant <- tidyped(plant_ped, selfing = TRUE, inbreed = TRUE)
+tp_plant[]
+
+# Check metadata
+attr(tp_plant, "ped_meta")
+
+## ----plant-selfing-summary----------------------------------------------------
+summary(tp_plant)
+
+## ----plant-selfing-inbreed----------------------------------------------------
+# Inbreeding coefficients
+tp_plant[, .(Ind, Sex, Gen, f)]
+

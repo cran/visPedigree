@@ -14,17 +14,24 @@ visped(
   highlight = NULL,
   trace = FALSE,
   showf = FALSE,
+  labelvar = NULL,
+  shapeby = c("sex", "role"),
   pagewidth = 200,
   symbolsize = 1,
   maxiter = 1000,
   genlab = FALSE,
+  genlabcex = NULL,
   ...
 )
 }
 \arguments{
 \item{ped}{A \code{tidyped} object (which inherits from \code{data.table}). It is recommended that the pedigree is tidied and pruned by candidates using the \code{\link{tidyped}} function with the non-null parameter \code{cand}.}
 
-\item{compact}{A logical value indicating whether IDs of full-sib individuals in one generation will be removed and replaced with the number of full-sib individuals. For example, if there are 100 full-sib individuals in one generation, they will be replaced with a single label "100" when \code{compact = TRUE}. The default value is FALSE.}
+\item{compact}{A logical value indicating whether terminal, non-parent
+full-sib individuals will be replaced by one family display node. For
+example, 100 eligible full siblings are shown as \code{"FS×100"} when
+\code{compact = TRUE}. Highlighted individuals are not compacted, and the
+underlying pedigree is unchanged. The default value is FALSE.}
 
 \item{outline}{A logical value indicating whether shapes without labels will be shown. A graph of the pedigree without individual labels is shown when setting \code{outline = TRUE}. This is useful for viewing the pedigree outline and identifying immigrant individuals in each generation when the graph width exceeds the maximum PDF width (500 inches). The default value is FALSE.}
 
@@ -32,7 +39,7 @@ visped(
 
 \item{showgraph}{A logical value indicating whether a plot will be shown in the default graphic device (e.g., the Plots panel in RStudio). This is useful for quick viewing without opening a PDF file. However, the graph on the default device may not be legible (e.g., overlapping labels or aliasing lines) due to size restrictions. It is recommended to set \code{showgraph = FALSE} for large pedigrees. The default value is TRUE.}
 
-\item{file}{NULL or a character value specifying whether the pedigree graph will be saved as a PDF file. The PDF output is a legible vector drawing where labels do not overlap, even with many individuals or long labels. It is recommended to save the pedigree graph as a PDF file. The default value is NULL.}
+\item{file}{NULL or a character value specifying whether the pedigree graph will be saved as a vector file. Files ending in '.svg' are written with the SVG device; all other file names use PDF output. The vector output is legible and avoids overlapping labels even with many individuals or long labels. It is recommended to save the pedigree graph as a vector file. The default value is NULL.}
 
 \item{highlight}{NULL, a character vector of individual IDs, or a list specifying individuals to highlight. If a character vector is provided, individuals will be highlighted with a purple border while preserving their sex-based fill color. If a list is provided, it should contain:
 \itemize{
@@ -48,30 +55,63 @@ For example: \code{c("A", "B")} or \code{list(ids = c("A", "B"), frame.color = "
 
 \item{showf}{A logical value indicating whether inbreeding coefficients will be shown in the graph. If \code{showf = TRUE} and the column \strong{f} is missing, \code{visped()} will try to compute it automatically with \code{\link{inbreed}} on a structurally complete pedigree. If automatic computation is not possible, a warning is issued and labels are drawn without \strong{f}. The default value is FALSE.}
 
+\item{labelvar}{NULL, a single non-empty character value naming a column in
+\code{ped}, or a character vector with one displayed label per input
+pedigree row. Row-aligned vectors are attached before any internal
+tidying or reordering. Compact full-sib family nodes still show family
+size when \code{compact = TRUE}. Missing or empty values fall back to
+individual IDs. The default value is NULL.}
+
+\item{shapeby}{Character string controlling what node shapes encode.
+\code{"sex"} (default) uses circles for females, squares for males,
+diamonds for unknown sex, and hexagons for monoecious individuals.
+\code{"role"} distinguishes individual records from compact family
+summaries by shape while keeping sex-based fill colors for real
+individuals. Compact family summaries are rectangles in both modes.}
+
 \item{pagewidth}{A numeric value specifying the width of the PDF file in inches. This controls the horizontal scaling of the layout. The default value is 200.}
 
 \item{symbolsize}{A numeric value specifying the scaling factor for node size relative to the label size. Values greater than 1 increase the node size (adding padding around the label), while values less than 1 decrease it. This is useful for fine-tuning the whitespace and legibility of dense graphs. The default value is 1.}
 
 \item{maxiter}{An integer specifying the maximum number of iterations for the Sugiyama layout algorithm to minimize edge crossings. Higher values (e.g., 2000 or 5000) may result in fewer crossed lines for complex pedigrees but will increase computation time. The default value is 1000.}
 
-\item{genlab}{A logical value indicating whether generation labels (G1, G2, ...) will be drawn on the left margin of the pedigree graph. This helps identify the generation of each row of nodes, especially in deep pedigrees with many generations. The default value is FALSE.}
+\item{genlab}{FALSE to omit generation labels; TRUE to draw the default
+labels G1, G2, ...; or an unnamed, non-empty character vector of custom
+labels. Custom labels are assigned from top to bottom to the final
+displayed generation layers and must contain exactly one label per layer.
+The default value is FALSE.}
+
+\item{genlabcex}{NULL or a numeric value controlling the size of displayed
+generation labels. If \code{NULL}, \code{visped()} uses an automatic size
+based on node scaling. Set a larger value to keep generation labels
+readable in deep pedigrees. The default value is NULL.}
 
 \item{...}{Additional arguments passed to \code{\link[igraph:plot.igraph]{plot.igraph}}.}
 }
 \value{
-The function mainly produces a plot on the current graphics device and/or a PDF file. It invisibly returns a list containing the graph object, layout coordinates, and node sizes.
+The function mainly produces a plot on the current graphics device and/or a vector file. It invisibly returns a list containing the graph object, layout coordinates, and node sizes.
 }
 \description{
 \code{visped} function draws a graph of a full or compact pedigree.
 }
 \details{
-This function takes a pedigree tidied by the \code{\link{tidyped}} function and outputs a hierarchical graph for all individuals in the pedigree. The graph can be shown on the default graphic device or saved as a PDF file. The PDF output is a legible vector drawing that is legible and avoids overlapping labels. It is especially useful when the number of individuals is large and individual labels are long.
+This function takes a pedigree tidied by the \code{\link{tidyped}} function and outputs a hierarchical graph for all individuals in the pedigree. The graph can be shown on the default graphic device or saved as a PDF or SVG file. The vector output is legible and avoids overlapping labels. It is especially useful when the number of individuals is large and individual labels are long.
 
 Rendering is performed using a Two-Pass strategy: edges are drawn first to ensure center-to-center connectivity, followed by nodes and labels. This ensures perfect visual alignment in high-resolution vector outputs. The function also supports real-time ancestry and descendant highlighting.
 
 This function can draw the graph of a very large pedigree (> 10,000 individuals per generation) by compacting full-sib individuals. It is highly effective for aquatic animal pedigrees, which usually include many full-sib families per generation in nucleus breeding populations. The outline of a pedigree without individual labels is still shown if the width of a pedigree graph exceeds the maximum width (500 inches) of the PDF file.
 
-In the graph, two shapes and four colors are used. Circles represent individuals, and squares represent families. Dark sky blue indicates males, dark goldenrod indicates females, purple indicates monoecious individuals (common in plant breeding, where the same individual serves as both male and female parent), and dark olive green indicates unknown sex. For example, a dark sky blue circle represents a male individual; a dark goldenrod square represents all female individuals in a full-sib family when \code{compact = TRUE}.
+By default, \code{shapeby = "sex"} encodes individual sex with node shape:
+females are circles, males are squares, individuals of unknown sex are
+diamonds, and monoecious individuals are hexagons. Set
+\code{shapeby = "role"} to use the legacy role-based scheme, where circles
+represent individual records and green-grey rectangles represent compact
+full-sib family summaries. Compact family summaries remain green-grey
+rectangles in both modes. In \code{shapeby = "role"} mode, real individuals
+remain circles, but their fill colors still encode sex. Dark sky blue
+indicates males, dark goldenrod indicates females, teal indicates monoecious
+individuals, and neutral grey indicates unknown sex. Purple borders indicate
+highlighted individuals rather than sex.
 }
 \note{
 Isolated individuals (those with no parents and no progeny, assigned Gen 0) are automatically filtered out and not shown in the plot. A message will be issued if any such individuals are removed.
@@ -84,6 +124,14 @@ simple_ped_tidy <- tidyped(simple_ped)
 visped(simple_ped_tidy, 
        cex=0.25, 
        symbolsize=5.5)
+
+# Use application-specific labels for the displayed generations.
+# Custom labels are assigned from top to bottom.
+generation_labels <- paste("Generation", sort(unique(simple_ped_tidy$Gen)))
+visped(simple_ped_tidy,
+       genlab = generation_labels,
+       cex = 0.25,
+       symbolsize = 5.5)
 
 # Highlighting an individual and its ancestors and descendants
 visped(simple_ped_tidy, 
@@ -105,6 +153,12 @@ visped(simple_ped_tidy,
        cex=0.25,
        symbolsize=5.5)
 
+# Use the role-based legacy symbol scheme
+visped(simple_ped_tidy,
+       shapeby = "role",
+       cex=0.25,
+       symbolsize=5.5)
+
 # Adjusting page width and symbol size for better layout
 # Increase pagewidth to spread nodes horizontally in the pdf file
 # Increase symbolsize for more padding around individual labels
@@ -113,6 +167,13 @@ visped(simple_ped_tidy,
        symbolsize=5.5, 
        pagewidth = 100, 
        file = tempfile(fileext = ".pdf"))
+
+# Saving pedigree as SVG with larger labels and tighter symbols
+visped(simple_ped_tidy,
+       cex=0.8,
+       symbolsize=1,
+       pagewidth = 100,
+       file = tempfile(fileext = ".svg"))
 
 # Highlighting multiple individuals with custom colors
 visped(simple_ped_tidy,

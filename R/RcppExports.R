@@ -21,10 +21,6 @@ cpp_calculate_A <- function(sire, dam) {
     .Call(`_visPedigree_cpp_calculate_A`, sire, dam)
 }
 
-cpp_mean_relationship <- function(sire, dam, target_idx) {
-    .Call(`_visPedigree_cpp_mean_relationship`, sire, dam, target_idx)
-}
-
 cpp_calculate_D <- function(sire, dam, A) {
     .Call(`_visPedigree_cpp_calculate_D`, sire, dam, A)
 }
@@ -45,8 +41,12 @@ cpp_invert_auto <- function(M) {
     .Call(`_visPedigree_cpp_invert_auto`, M)
 }
 
-cpp_solve_A <- function(sire, dam, dii, b) {
-    .Call(`_visPedigree_cpp_solve_A`, sire, dam, dii, b)
+cpp_multiply_A <- function(sire, dam, dii, rhs) {
+    .Call(`_visPedigree_cpp_multiply_A`, sire, dam, dii, rhs)
+}
+
+cpp_multiply_Ainv <- function(sire, dam, dii, rhs) {
+    .Call(`_visPedigree_cpp_multiply_Ainv`, sire, dam, dii, rhs)
 }
 
 cpp_assign_generations_top <- function(sire, dam, topo_order) {
@@ -59,10 +59,6 @@ cpp_calculate_partial_inbreeding <- function(sire, dam, dii, ancestors) {
 
 cpp_assign_generations_bottom <- function(sire, dam, topo_order) {
     .Call(`_visPedigree_cpp_assign_generations_bottom`, sire, dam, topo_order)
-}
-
-cpp_calculate_sampled_coancestry_delta <- function(sire, dam, target_idx, ecg) {
-    .Call(`_visPedigree_cpp_calculate_sampled_coancestry_delta`, sire, dam, target_idx, ecg)
 }
 
 cpp_pedcontrib <- function(sire, dam, cohort_pos, mode) {

@@ -1,7 +1,8 @@
 #' Convert pedigree to igraph structure
 #' @import data.table
 #' @keywords internal
-ped2igraph <- function(ped, compact = FALSE, highlight = NULL, trace = FALSE, showf = FALSE) {
+ped2igraph <- function(ped, compact = FALSE, highlight = NULL, trace = FALSE,
+                       showf = FALSE, labelvar = NULL, shapeby = "sex") {
   if (nrow(ped) == 0) {
     return(list(
       node = data.table(id = integer(), nodetype = character(), gen = integer(), layer = numeric(), label = character()),
@@ -17,7 +18,7 @@ ped2igraph <- function(ped, compact = FALSE, highlight = NULL, trace = FALSE, sh
   h_ids <- highlight_info$all_ids
   
   # 3. Prepare initial node table
-  ped_node <- prepare_initial_nodes(ped_new)
+  ped_node <- prepare_initial_nodes(ped_new, labelvar = labelvar)
   
   # 4. Compact pedigree (if requested)
   ped_node <- compact_pedigree(ped_node, compact, h_ids)
@@ -28,7 +29,7 @@ ped2igraph <- function(ped, compact = FALSE, highlight = NULL, trace = FALSE, sh
   ped_edge <- graph_struct$edge
   
   # 6. Apply styles (colors, shapes, highlighting)
-  ped_node <- apply_node_styles(ped_node, highlight_info)
+  ped_node <- apply_node_styles(ped_node, highlight_info, shapeby)
   
   # 7. Finalize graph (reindex IDs, set edge colors)
   result <- finalize_graph(ped_node, ped_edge, highlight_info, trace, showf)
@@ -103,12 +104,15 @@ inject_missing_parents <- function(ped) {
 #' Prepare initial node table for igraph conversion
 #' @param ped A data.table containing pedigree info.
 #' @keywords internal
-prepare_initial_nodes <- function(ped) {
+prepare_initial_nodes <- function(ped, labelvar = NULL) {
   cols <- c("IndNum", "Ind", "SireNum", "DamNum", "Sire", "Dam", "Sex", "Gen")
   if ("Cand" %in% colnames(ped)) cols <- c(cols, "Cand")
   if ("f" %in% colnames(ped)) cols <- c(cols, "f")
   
   ped_node <- ped[, ..cols]
+  if (!is.null(labelvar)) {
+    set(ped_node, j = "DisplayLabel", value = as.character(ped[[labelvar]]))
+  }
   setnames(ped_node, 
            old = c("IndNum", "Ind", "SireNum", "DamNum", "Sire", "Dam", "Sex", "Gen"),
            new = c("id", "label", "sirenum", "damnum", "sirelabel", "damlabel", "sex", "gen"))
@@ -162,7 +166,7 @@ compact_pedigree <- function(ped_node, compact, h_ids) {
       # Take one representative from each family
       compact_family <- unique(fullsib_id_DT, by = c("familylabel"))
       compact_family[, `:=`(
-        label = as.character(familysize),
+        label = paste0("FS\u00d7", familysize),
         nodetype = "compact",
         sex = NA_character_
       )]

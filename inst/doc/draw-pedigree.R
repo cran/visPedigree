@@ -13,7 +13,22 @@ library(visPedigree)
 tidy_small_ped <-
   tidyped(ped = small_ped,
           cand = c("Y", "Z1", "Z2"))
-visped(tidy_small_ped, compact = TRUE, file = tempfile(fileext = ".pdf"))
+visped(tidy_small_ped, 
+        compact = TRUE, 
+        cex=0.5, 
+        symbolsize=10, 
+        file = tempfile(fileext = ".pdf"))
+
+## ----symbol-schemes, fig.show="hold"------------------------------------------
+visped(tidy_small_ped, 
+      compact = TRUE,
+      cex=0.5, 
+      symbolsize=10)
+visped(tidy_small_ped, 
+        compact = TRUE, 
+        shapeby = "role",
+        cex=0.5, 
+        symbolsize=10)
 
 ## ----vissimpleped, fig.show="hold"--------------------------------------------
 tidy_simple_ped <- tidyped(simple_ped)
@@ -22,8 +37,27 @@ visped(tidy_simple_ped, cex=0.3, symbolsize=10)
 ## ----vissimpleped_genlab, fig.show="hold"-------------------------------------
 visped(tidy_simple_ped, cex = 0.3, symbolsize = 10, genlab = TRUE)
 
+## ----vissimpleped_custom_genlab, fig.show="hold"------------------------------
+generation_labels <- paste0("Gen_", sort(unique(tidy_simple_ped$Gen)))
+visped(tidy_simple_ped, cex = 0.3, symbolsize = 10, genlab = generation_labels, genlabcex=0.6)
+
+## ----vissimpleped_genlabcex, fig.show="hold"----------------------------------
+# cex controls individual label size; genlabcex controls generation label size
+visped(tidy_simple_ped, cex = 0.3, symbolsize = 15, genlab = TRUE, genlabcex = 0.8)
+
 ## -----------------------------------------------------------------------------
 suppressMessages(visped(tidy_simple_ped, showgraph = FALSE, file = tempfile(fileext = ".pdf")))
+
+## -----------------------------------------------------------------------------
+suppressMessages(visped(tidy_simple_ped, showgraph = FALSE, file = tempfile(fileext = ".svg")))
+
+## ----custom-labels, fig.show="hold"-------------------------------------------
+tidy_simple_ped[, ShortLabel := paste0("N", seq_len(.N))]
+visped(tidy_simple_ped, labelvar = "ShortLabel", cex = 0.3, symbolsize = 10)
+
+# A row-aligned vector is also accepted
+visped(tidy_simple_ped, labelvar = rep("1x", nrow(tidy_simple_ped)),
+       cex = 0.3, symbolsize = 10)
 
 ## ----highlight1---------------------------------------------------------------
 visped(tidyped(small_ped), highlight = c("Y", "Z1"))
@@ -48,6 +82,20 @@ test_ped <- data.table(
 )
 tidy_test_ped_inbreed <- tidyped(test_ped, inbreed = TRUE)
 visped(tidy_test_ped_inbreed, showf = TRUE)
+
+## ----plant-selfing-draw-------------------------------------------------------
+library(data.table)
+
+# P1 × P2 → F1;  F1 selfs → F2_1, F2_2;  F2_1 selfs → F3
+plant_ped <- data.table(
+  Ind  = c("P1", "P2", "F1", "F2_1", "F2_2", "F3"),
+  Sire = c(NA,   NA,   "P1", "F1",   "F1",   "F2_1"),
+  Dam  = c(NA,   NA,   "P2", "F1",   "F1",   "F2_1")
+)
+
+tp_plant <- tidyped(plant_ped, selfing = TRUE, inbreed = TRUE)
+
+visped(tp_plant, compact = TRUE, showf = TRUE, cex=0.5, symbolsize=10)
 
 ## ----deepped, eval=FALSE------------------------------------------------------
 # cand_J11_labels <- deep_ped[(substr(Ind, 1, 3) == "K11"), Ind]

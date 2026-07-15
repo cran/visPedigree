@@ -9,7 +9,9 @@ ped2igraph(
   compact = FALSE,
   highlight = NULL,
   trace = FALSE,
-  showf = FALSE
+  showf = FALSE,
+  labelvar = NULL,
+  shapeby = "sex"
 )
 }
 \description{

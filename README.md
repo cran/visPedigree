@@ -1,9 +1,9 @@
-# visPedigree: Tidying, Analysis, and Fast Visualization of Animal and Plant Pedigrees <img src="man/figures/logo.png" align="right" height="138" alt="" />
+# visPedigree: Tidying, Analysis, and Fast Visualization of Animal and Plant Pedigrees <img src="https://raw.githubusercontent.com/luansheng/visPedigree/main/man/figures/logo.png" align="right" height="138" alt="" />
 
 `visPedigree` provides tools for the analysis and visualization of animal and plant pedigrees. Analytical methods cover equivalent complete generations, generation intervals, effective population size, founder and ancestor contributions, partial inbreeding, genetic diversity indices, and relationship matrices (A, D, AA). Core algorithms — ancestry tracing, topological sorting, inbreeding coefficients, and matrix construction — are implemented in C++ (Rcpp/RcppArmadillo) and `data.table`, scaling to pedigrees with over one million individuals. Pedigree graphs are rendered via `igraph`; relationship matrices can be visualized as heatmaps. Complex mating systems are supported, including selfing and pedigrees in which the same individual can appear as both sire and dam.
 
 <p align="center">
-  <img src="man/figures/ped_example.png" width="800" alt="Example pedigree visualization produced by visPedigree">
+  <img src="https://raw.githubusercontent.com/luansheng/visPedigree/main/man/figures/ped_example.png" width="800" alt="Example pedigree visualization produced by visPedigree">
 </p>
 
 ## Key Features
@@ -11,6 +11,7 @@
 - **Pedigree Standardization**: Standardizes pedigree records, handles selfing and pedigrees in which the same individual can appear as both sire and dam, detects pedigree loops, prepares pedigrees for downstream analysis, and efficiently splits disconnected sub-populations.
 - **Comprehensive Pedigree Analysis**: Computes pedigree summaries, equivalent complete generations, generation intervals, effective population size, founder and ancestor contributions, partial inbreeding, relationship matrices, and inbreeding coefficients.
 - **High-Throughput Matrix Calculation**: Calculates Additive (A), Dominance (D), and Additive-by-Additive (AA) relationship matrices and their inverses.
+- **Matrix-Free Relationship Products**: Computes $Ax$, $AX$, $A^{-1}x$, and $A^{-1}X$ directly from an ordered pedigree with `pedprod()`, avoiding construction of the dense additive relationship matrix.
 - **Advanced Visualization**: Renders scalable pedigree graphs via `igraph` with compact representations for large full-sib families, plus heatmap displays for relationship matrices.
 - **High Performance**: Core algorithms — ancestry tracing, topological sorting, inbreeding calculation, and matrix construction — are implemented in C++ (Rcpp/RcppArmadillo) with `data.table` for tabular operations, scaling to pedigrees with over one million individuals.
 
@@ -51,8 +52,8 @@ Recommended reading order:
 library(visPedigree)
 
 # Example 1: Tidy and visualize a small pedigree
-# Use compact = TRUE to condense full-sib groups into a single family node (square) 
-# labeled with the group size (e.g., "2"), keeping the graph clean and legible.
+# Use compact = TRUE to condense eligible full-sib groups into a green-grey
+# family-summary rectangle labelled FS×N.
 cands <- c("Y", "Z1", "Z2")
 small_ped |>
   tidyped(cand = cands) |>
@@ -64,6 +65,11 @@ small_ped |>
 mat_a <- simple_ped |> tidyped() |> pedmat(method = "A", compact = TRUE)
 # Visualize the relationship matrix as a heatmap with histograms
 vismat(mat_a)
+
+# Apply A to candidate contribution weights without constructing A
+tp_simple <- tidyped(simple_ped)
+candidate_weights <- c(J5X804 = 0.5, J3Y620 = 0.5)
+weighted_relationship <- pedprod(tp_simple, candidate_weights)
 
 # Example 3: Inbreeding & Highlighting
 # Calculate inbreeding coefficients (f) and display them on the graph (e.g., "ID (0.05)").
@@ -92,4 +98,4 @@ summary(split_list[[1]])
 
 ## Citation
 
-Luan Sheng (2026). visPedigree: Tidying, Analysis, and Fast Visualization of Animal and Plant Pedigrees. R package version 1.8.1, https://github.com/luansheng/visPedigree.
+Luan Sheng (2026). visPedigree: Tidying, Analysis, and Fast Visualization of Animal and Plant Pedigrees. R package version 1.9.0, https://github.com/luansheng/visPedigree.

@@ -2,6 +2,17 @@ library(testthat)
 library(data.table)
 library(visPedigree)
 
+make_sex_shape_ped <- function() {
+  tidyped(
+    data.table(
+      Ind = c("M", "F", "H", "U", "HC"),
+      Sire = c(NA, NA, NA, "M", "H"),
+      Dam = c(NA, NA, NA, "F", "H")
+    ),
+    selfing = TRUE
+  )
+}
+
 test_that("visped works with basic tidy input", {
   tidy_ped <- tidyped(simple_ped, addgen = TRUE, addnum = TRUE)
   # Check return structure
@@ -18,6 +29,134 @@ test_that("visped handles raw input by auto-tidying", {
   
   # Check dimensions - simple_ped has 52 individuals in example
   expect_gt(igraph::vcount(res$g), 0)
+})
+
+test_that("visped writes SVG output when requested", {
+  tidy_ped <- tidyped(simple_ped, addgen = TRUE, addnum = TRUE)
+  svg_file <- tempfile(fileext = ".svg")
+
+  res <- visped(tidy_ped, showgraph = FALSE, file = svg_file)
+
+  expect_s3_class(res$g, "igraph")
+  expect_true(file.exists(svg_file))
+  expect_gt(file.info(svg_file)$size, 0)
+})
+
+test_that("visped supports custom generation labels in displayed-layer order", {
+  tidy_ped <- tidyped(simple_ped, addgen = TRUE, addnum = TRUE)
+  default_info <- visPedigree:::prepare_visped_geninfo(
+    data.table(gen = c(1L, 3L, 5L), y = c(0.1, 0.5, 0.9))
+  )
+  custom_info <- visPedigree:::prepare_visped_geninfo(
+    data.table(gen = c(1L, 3L, 5L), y = c(0.1, 0.5, 0.9)),
+    c("Founders", "Cycle 1", "Current")
+  )
+
+  expect_equal(default_info$label, c("G1", "G3", "G5"))
+  expect_equal(custom_info$label, c("Founders", "Cycle 1", "Current"))
+
+  custom_labels <- paste0("Layer ", seq_len(length(unique(tidy_ped$Gen))))
+  expect_silent(
+    suppressMessages(visped(
+      tidy_ped,
+      genlab = custom_labels,
+      showgraph = FALSE,
+      file = tempfile(fileext = ".pdf")
+    ))
+  )
+})
+
+test_that("visped validates custom generation labels", {
+  tidy_ped <- tidyped(simple_ped, addgen = TRUE, addnum = TRUE)
+
+  expect_error(
+    visped(tidy_ped, genlab = c("one", "two"), showgraph = FALSE, file = tempfile()),
+    "one label for each displayed generation"
+  )
+  expect_error(
+    visped(tidy_ped, genlab = c("1" = "Founders"), showgraph = FALSE, file = tempfile()),
+    "unnamed character vector"
+  )
+  expect_error(
+    visped(tidy_ped, genlab = character(), showgraph = FALSE, file = tempfile()),
+    "TRUE, FALSE, or a non-empty unnamed character vector"
+  )
+  expect_error(
+    visped(tidy_ped, genlab = 1, showgraph = FALSE, file = tempfile()),
+    "TRUE, FALSE, or a non-empty unnamed character vector"
+  )
+})
+
+test_that("visped reports the effective generation-label cex", {
+  tidy_ped <- tidyped(simple_ped, addgen = TRUE, addnum = TRUE)
+
+  expect_message(
+    visped(
+      tidy_ped,
+      genlab = TRUE,
+      genlabcex = 1.2,
+      showgraph = FALSE,
+      file = tempfile(fileext = ".pdf")
+    ),
+    "Generation label cex: 1.2"
+  )
+})
+
+test_that("visped supports custom individual labels", {
+  tidy_ped <- tidyped(simple_ped, addgen = TRUE, addnum = TRUE)
+  tidy_ped[, DisplayID := paste0("node_", seq_len(.N))]
+
+  res <- visped(tidy_ped, labelvar = "DisplayID", showgraph = FALSE, file = tempfile())
+  vertices <- as.data.table(igraph::as_data_frame(res$g, what = "vertices"))
+  real_nodes <- vertices[nodetype == "real"]
+
+  expected <- tidy_ped$DisplayID[match(real_nodes$Ind, tidy_ped$Ind)]
+  expect_equal(real_nodes$label, expected)
+})
+
+test_that("visped accepts row-aligned labels without losing ID alignment", {
+  raw_ped <- copy(as.data.table(simple_ped))
+  raw_ped <- raw_ped[rev(seq_len(nrow(raw_ped)))]
+  original_names <- names(raw_ped)
+  raw_ids <- as.character(raw_ped[[1L]])
+  display_labels <- paste0("node_", raw_ids)
+  display_labels[1:2] <- c(NA_character_, "")
+  focal <- "J5X804"
+
+  res <- visped(
+    raw_ped,
+    labelvar = display_labels,
+    highlight = focal,
+    trace = "all",
+    showgraph = FALSE,
+    file = tempfile()
+  )
+  vertices <- as.data.table(igraph::as_data_frame(res$g, what = "vertices"))
+  real_nodes <- vertices[nodetype == "real"]
+  expected <- display_labels[match(real_nodes$Ind, raw_ids)]
+  expected[is.na(expected) | expected == ""] <-
+    real_nodes$Ind[is.na(expected) | expected == ""]
+
+  expect_equal(real_nodes$label, expected)
+  expect_true(real_nodes[Ind == focal, highlighted])
+  expect_identical(names(raw_ped), original_names)
+})
+
+test_that("visped rejects missing custom label columns", {
+  tidy_ped <- tidyped(simple_ped, addgen = TRUE, addnum = TRUE)
+
+  expect_error(
+    visped(tidy_ped, labelvar = "MissingLabel", showgraph = FALSE, file = tempfile()),
+    "specified by 'labelvar' was not found"
+  )
+  expect_error(
+    visped(tidy_ped, labelvar = c("one", "two")),
+    "one label per pedigree row"
+  )
+  expect_error(
+    visped(tidy_ped, labelvar = seq_len(nrow(tidy_ped))),
+    "must be NULL"
+  )
 })
 
 test_that("visped parameter 'compact' works", {
@@ -39,14 +178,172 @@ test_that("visped parameter 'compact' works", {
   res_full <- visped(tidy_fam, compact = FALSE, showgraph = FALSE, file = tempfile())
   
   # With compact
-  res_compact <- visped(tidy_fam, compact = TRUE, showgraph = FALSE, file = tempfile())
+  res_compact <- visped(
+    tidy_fam,
+    compact = TRUE,
+    labelvar = paste0("node_", tidy_fam$Ind),
+    showgraph = FALSE,
+    file = tempfile()
+  )
   
   # Check if "compact" nodes exist
   node_types <- igraph::V(res_compact$g)$nodetype
   expect_true("compact" %in% node_types)
+  compact_labels <- igraph::V(res_compact$g)[nodetype == "compact"]$label
+  real_labels <- igraph::V(res_compact$g)[nodetype == "real"]$label
+  expect_true(all(grepl("^FS\u00d7[0-9]+$", compact_labels)))
+  expect_true(all(grepl("^node_", real_labels)))
+  expect_true(all(igraph::V(res_compact$g)[nodetype == "compact"]$shape == "rectangle"))
+  expect_equal(
+    igraph::V(res_compact$g)[nodetype == "compact"]$size2,
+    igraph::V(res_compact$g)[nodetype == "compact"]$size
+  )
+  expect_true(all(
+    igraph::V(res_compact$g)[nodetype == "compact"]$color == "#9cb383"
+  ))
+  expect_true(all(
+    igraph::V(res_compact$g)[nodetype == "compact"]$frame.color == "#5f7650"
+  ))
   
   # Compact graph should have fewer nodes (real id nodes replaced by one compact node)
   expect_lt(igraph::vcount(res_compact$g), igraph::vcount(res_full$g))
+})
+
+test_that("visped shapeby sex is the default and preserves sex colors", {
+  tidy_ped <- make_sex_shape_ped()
+  res_default <- visped(tidy_ped, showgraph = FALSE, file = tempfile())
+  res_sex <- visped(
+    tidy_ped,
+    shapeby = "sex",
+    showgraph = FALSE,
+    file = tempfile()
+  )
+
+  default_nodes <- as.data.table(igraph::as_data_frame(res_default$g, what = "vertices"))
+  sex_nodes <- as.data.table(igraph::as_data_frame(res_sex$g, what = "vertices"))
+  expect_equal(default_nodes$shape, sex_nodes$shape)
+  expect_equal(sex_nodes[Ind == "F", shape], "circle")
+  expect_equal(sex_nodes[Ind == "M", shape], "square")
+  expect_equal(sex_nodes[Ind == "U", shape], "visped_diamond")
+  expect_equal(sex_nodes[Ind == "H", shape], "visped_hexagon")
+  expect_equal(sex_nodes[Ind == "M", color], "#119ecc")
+  expect_equal(sex_nodes[Ind == "F", color], "#f4b131")
+  expect_equal(sex_nodes[Ind == "H", color], "#26a69a")
+  expect_equal(sex_nodes[Ind == "U", color], "#d9d9d9")
+  expect_equal(sex_nodes[Ind == "U", frame.color], "#777777")
+})
+
+test_that("visped shapeby role keeps individual records as circles", {
+  tidy_ped <- make_sex_shape_ped()
+  res <- visped(
+    tidy_ped,
+    shapeby = "role",
+    showgraph = FALSE,
+    file = tempfile()
+  )
+  nodes <- as.data.table(igraph::as_data_frame(res$g, what = "vertices"))
+
+  expect_true(all(nodes[nodetype == "real", shape] == "circle"))
+  expect_equal(nodes[Ind == "M", color], "#119ecc")
+  expect_equal(nodes[Ind == "F", color], "#f4b131")
+  expect_equal(nodes[Ind == "H", color], "#26a69a")
+  expect_equal(nodes[Ind == "U", color], "#d9d9d9")
+  expect_equal(nodes[Ind == "U", frame.color], "#777777")
+})
+
+test_that("visped shapeby sex maps all supported sex classes", {
+  tidy_ped <- make_sex_shape_ped()
+  res <- visped(
+    tidy_ped,
+    shapeby = "sex",
+    showgraph = FALSE,
+    file = tempfile()
+  )
+  nodes <- as.data.table(igraph::as_data_frame(res$g, what = "vertices"))
+
+  expect_equal(nodes[Ind == "F", shape], "circle")
+  expect_equal(nodes[Ind == "M", shape], "square")
+  expect_equal(nodes[Ind == "U", shape], "visped_diamond")
+  expect_equal(nodes[Ind == "H", shape], "visped_hexagon")
+  expect_true(all(c("visped_diamond", "visped_hexagon") %in% igraph::shapes()))
+  expect_silent(visPedigree:::register_visped_shapes(c("diamond", "hexagon")))
+  expect_error(
+    visped(tidy_ped, shapeby = "unsupported"),
+    "'arg' should be one of"
+  )
+})
+
+test_that("custom shapes skip zero-size edge-only rendering pass", {
+  zero_params <- function(type, name) {
+    switch(
+      name,
+      color = "#000000",
+      frame.color = "#000000",
+      frame.width = 0,
+      size = 0
+    )
+  }
+  coords <- matrix(c(0.5, 0.5), nrow = 1L)
+
+  expect_silent(visPedigree:::make_visped_polygon(4L)(coords, params = zero_params))
+  expect_silent(visPedigree:::make_visped_polygon(6L)(coords, params = zero_params))
+})
+
+test_that("compact labels cannot be confused with numeric individual IDs", {
+  sibling_ids <- paste0("S", seq_len(10L))
+  raw_ped <- data.table(
+    Ind = c("10", "F", "P1", "P2", sibling_ids, "C"),
+    Sire = c(NA, NA, NA, NA, rep("P1", 10L), "10"),
+    Dam = c(NA, NA, NA, NA, rep("P2", 10L), "F")
+  )
+  res <- visped(
+    tidyped(raw_ped),
+    compact = TRUE,
+    showgraph = FALSE,
+    file = tempfile()
+  )
+  nodes <- as.data.table(igraph::as_data_frame(res$g, what = "vertices"))
+
+  expect_true("10" %in% nodes[nodetype == "real", label])
+  expect_true("FS\u00d710" %in% nodes[nodetype == "compact", label])
+  expect_equal(nodes[label == "FS\u00d710", shape], "rectangle")
+})
+
+test_that("highlighted and parent individuals are not compacted", {
+  raw_ped <- data.table(
+    Ind = c("P1", "P2", "A", "B", "C", "D"),
+    Sire = c(NA, NA, "P1", "P1", "P1", "A"),
+    Dam = c(NA, NA, "P2", "P2", "P2", "B")
+  )
+  tidy_ped <- tidyped(raw_ped)
+  res <- visped(
+    tidy_ped,
+    compact = TRUE,
+    highlight = "C",
+    showgraph = FALSE,
+    file = tempfile()
+  )
+  nodes <- as.data.table(igraph::as_data_frame(res$g, what = "vertices"))
+
+  expect_true(all(c("A", "B", "C") %in% nodes[nodetype == "real", Ind]))
+  expect_false(any(nodes[nodetype == "compact", label] == "FS\u00d73"))
+})
+
+test_that("sex-based custom shapes render to PDF and SVG", {
+  tidy_ped <- make_sex_shape_ped()
+  for (extension in c(".pdf", ".svg")) {
+    output <- tempfile(fileext = extension)
+    expect_silent(
+      suppressMessages(visped(
+        tidy_ped,
+        shapeby = "sex",
+        showgraph = FALSE,
+        file = output
+      ))
+    )
+    expect_true(file.exists(output))
+    expect_gt(file.info(output)$size, 0)
+  }
 })
 
 test_that("visped parameter 'outline' works", {
@@ -269,4 +566,27 @@ test_that("visped validates new parameters", {
   # Validate trace
   expect_error(visped(tidy_ped, trace = "left"), "'trace' must be TRUE, FALSE, 'up', 'down', or 'all'")
   expect_error(visped(tidy_ped, trace = 1), "'trace' must be TRUE, FALSE, 'up', 'down', or 'all'")
+
+  # Validate genlabcex
+  expect_error(visped(tidy_ped, genlabcex = 0), "'genlabcex' must be NULL or a single positive number")
+  expect_error(visped(tidy_ped, genlabcex = "large"), "'genlabcex' must be NULL or a single positive number")
+})
+
+test_that("visped parameter 'genlabcex' works independently of label cex", {
+  tidy_ped <- tidyped(simple_ped)
+  tmp <- tempfile(fileext = ".pdf")
+
+  expect_no_error(
+    visped(
+      tidy_ped,
+      showgraph = FALSE,
+      file = tmp,
+      genlab = TRUE,
+      genlabcex = 1.4,
+      cex = 0.4
+    )
+  )
+
+  expect_true(file.exists(tmp))
+  unlink(tmp)
 })

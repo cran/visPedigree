@@ -1,9 +1,19 @@
+#' Resolve generation-label text size
+#' @keywords internal
+resolve_visped_genlabcex <- function(node_size, genlabcex = NULL) {
+  if (!is.null(genlabcex)) {
+    return(genlabcex)
+  }
+  max(0.5, min(1.5, max(node_size, 1.5) * 0.3))
+}
+
 #' Render pedigree graph using Two-Pass strategy
 #' @importFrom igraph V E plot.igraph vertex_attr edge_attr
 #' @importFrom utils modifyList
 #' @importFrom stats median
 #' @keywords internal
-plot_ped_igraph <- function(g, l, node_size, gen_info = NULL, genlab = FALSE, ...) {
+plot_ped_igraph <- function(g, l, node_size, gen_info = NULL, genlab = FALSE,
+                            genlabcex = NULL, ...) {
   genlab_margin <- 0.05
   genlab_color <- "#888888"
 
@@ -61,6 +71,7 @@ plot_ped_igraph <- function(g, l, node_size, gen_info = NULL, genlab = FALSE, ..
     edge.arrow.mode = e_arrow_mode,
     # Hide nodes
     vertex.size = 0,
+    vertex.size2 = 0,
     vertex.label = NA,
     vertex.color = NA,
     vertex.frame.color = NA,
@@ -73,6 +84,7 @@ plot_ped_igraph <- function(g, l, node_size, gen_info = NULL, genlab = FALSE, ..
     plot_args_edges <- utils::modifyList(plot_args_edges, safe_user_args)
     # Re-enforce node hiding for pass 1
     plot_args_edges$vertex.size <- 0
+    plot_args_edges$vertex.size2 <- 0
     plot_args_edges$vertex.label <- NA
   }
   
@@ -86,9 +98,10 @@ plot_ped_igraph <- function(g, l, node_size, gen_info = NULL, genlab = FALSE, ..
     layout = l, asp = 0, add = TRUE,
     # Node styles
     vertex.size = if (!is.null(v_attrs$size)) v_attrs$size else 15,
+    vertex.size2 = if (!is.null(v_attrs$size2)) v_attrs$size2 else 15,
     vertex.shape = if (!is.null(v_attrs$shape)) v_attrs$shape else "circle",
-    vertex.color = if (!is.null(v_attrs$color)) v_attrs$color else "#9cb383",
-    vertex.frame.color = if (!is.null(v_attrs$frame.color)) v_attrs$frame.color else "#7fae59",
+    vertex.color = if (!is.null(v_attrs$color)) v_attrs$color else VISPED_COLORS[["unknown"]],
+    vertex.frame.color = if (!is.null(v_attrs$frame.color)) v_attrs$frame.color else VISPED_COLORS[["unknown_frame"]],
     vertex.frame.width = v_frame_width,
     vertex.label = if (!is.null(v_attrs$label)) v_attrs$label else v_attrs$name,
     vertex.label.cex = if (!is.null(v_attrs$label.cex)) v_attrs$label.cex else 1,
@@ -109,13 +122,18 @@ plot_ped_igraph <- function(g, l, node_size, gen_info = NULL, genlab = FALSE, ..
 
   # PASS 3: Draw generation labels on the left margin
   if (genlab && !is.null(gen_info) && nrow(gen_info) > 0) {
-    gen_label_cex <- max(0.5, min(1.5, scaling_ref * 0.3))
+    gen_label_cex <- resolve_visped_genlabcex(node_size, genlabcex)
     gen_label_x <- -margin - genlab_space * 0.5
+    gen_labels <- if ("label" %in% names(gen_info)) {
+      gen_info$label
+    } else {
+      paste0("G", gen_info$gen)
+    }
     for (i in seq_len(nrow(gen_info))) {
       graphics::text(
         x = gen_label_x,
         y = gen_info$y[i],
-        labels = paste0("G", gen_info$gen[i]),
+        labels = gen_labels[i],
         cex = gen_label_cex,
         col = genlab_color,
         font = 2,
@@ -124,4 +142,3 @@ plot_ped_igraph <- function(g, l, node_size, gen_info = NULL, genlab = FALSE, ..
     }
   }
 }
-

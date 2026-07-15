@@ -185,6 +185,11 @@ needed for downstream analysis, use `splitped()`.
 - retained genetic diversity (`GeneDiv`),
 - three effective population size estimates (`Ne`).
 
+The gene-origin summaries follow the classical founder/ancestor framework of
+Lacy (1989) and Boichard et al. (1997), while coancestry-based diversity and
+effective population size calculations follow Caballero & Toro (2000) and
+related pedigree-based estimators.
+
 All of these quantities depend on the definition of the **reference
 population**. In the present example, the reference population is defined as the
 most recent two generations in `deep_ped`.
@@ -286,9 +291,9 @@ div_res$summary[, .(fg, MeanCoan, GeneDiv)]
 ### 6.2 Shannon-entropy effective numbers: `feH` and `faH`
 
 The classical `fe` and `fa` are based on $\sum p_i^2$ (Hill number order
-$q = 2$), which is disproportionately influenced by a few large contributions.
-`visPedigree` also reports the information-theoretic counterpart at order
-$q = 1$, derived from Shannon entropy:
+$q = 2$; Hill, 1973), which is disproportionately influenced by a few large
+contributions. `visPedigree` also reports the information-theoretic counterpart
+at order $q = 1$, derived from Shannon entropy (Jost, 2006):
 
 $$
 f_e^{(H)} = \exp\!\Bigl(-\sum_{i=1}^{f} p_i \ln p_i\Bigr), \qquad
@@ -481,6 +486,8 @@ plot(hl, type = "raw")
 ## 8. Effective Population Size with `pedne()` and `pediv()`
 
 `pediv()` reports three complementary effective population size definitions.
+The pedigree-based estimators follow the individual-rate approach of Gutiérrez
+et al. (2008, 2009) and the coancestry-rate approach of Cervantes et al. (2011).
 Each addresses a distinct biological question.
 
 ### 8.1 Demographic `Ne`
@@ -503,9 +510,9 @@ $$
 N_e = \frac{1}{2\overline{\Delta F}}
 $$
 
-This estimator uses the realized rate of inbreeding. `ECG` standardizes
-individuals with different pedigree depths. Use this estimate when the primary
-concern is **the rate of inbreeding accumulation**.
+This estimator uses the realized rate of inbreeding (Gutiérrez et al., 2008,
+2009). `ECG` standardizes individuals with different pedigree depths. Use this
+estimate when the primary concern is **the rate of inbreeding accumulation**.
 
 ### 8.3 Coancestry `Ne`
 
@@ -517,10 +524,10 @@ $$
 N_e = \frac{1}{2\overline{\Delta c}}
 $$
 
-This estimator is based on the rate of coancestry among members of the
-reference population. Because it captures the accumulation of relatedness
-before it is fully expressed as realized inbreeding, it is often the strictest
-and most sensitive warning signal in managed breeding populations.
+This estimator is based on the rate of coancestry among members of the reference
+population (Cervantes et al., 2011). Because it captures the accumulation of
+relatedness before it is fully expressed as realized inbreeding, it is often the
+strictest and most sensitive warning signal in managed breeding populations.
 
 ## 9. Average Relationship Trends with `pedrel()`
 
@@ -539,6 +546,13 @@ where $a_{ij} = 2c_{ij}$ is the additive relationship and $c_{ij}$ is the
 coancestry (kinship coefficient) between individuals $i$ and $j$.
 A higher `MeanRel` means that individuals within the group are, on average,
 more related by descent.
+
+Internally, `pedrel()` creates an indicator vector $g$ for each group and
+computes $Ag$ directly from the pedigree. The off-diagonal sum is obtained
+from $g^\mathsf{T}Ag$ after subtracting
+$\sum_{i:g_i=1}(1 + F_i)$. The dense relationship matrix is never
+materialized, so `compact` is now retained only as a backward-compatible
+no-op argument.
 
 ```{r pedrel-example}
 tp_small$BirthYear <- 2010 + tp_small$Gen
@@ -562,12 +576,15 @@ When `scale = "coancestry"`, `pedrel()` returns the diagonal-corrected
 population mean coancestry following Caballero & Toro (2000):
 
 $$
-\bar{C} = \frac{N - 1}{N} \cdot \frac{\bar{a}_{off}}{2} + \frac{1 + \bar{F}}{2N}
+\bar{C} = \frac{g^\mathsf{T}Ag}{2N^2}
+        = \frac{N - 1}{N} \cdot \frac{\bar{a}_{off}}{2}
+          + \frac{1 + \bar{F}}{2N}
 $$
 
 where $\bar{a}_{off}$ is the mean off-diagonal relationship, $\bar{F}$ is the
 mean inbreeding coefficient of the group, and $N$ is the group size. This
-$\bar{C}$ accounts for self-coancestry within the group and matches the
+$\bar{C}$ includes both off-diagonal pairwise coancestry and diagonal
+self-coancestry. It matches the
 internal coancestry quantity used by `pediv()` to derive $f_g$.
 
 ```{r pedrel-coancestry}
@@ -592,9 +609,9 @@ coancestry across pedigree depth.
 
 ## 10. Inbreeding Trends with `inbreed()` and `pedfclass()`
 
-Wright's inbreeding coefficient $F$ is the probability that the two alleles of
-an individual are identical by descent. A practical starting point is to inspect
-the mean trend by generation.
+Wright's inbreeding coefficient $F$ (Wright, 1922, 1931) is the probability
+that the two alleles of an individual are identical by descent. A practical
+starting point is to inspect the mean trend by generation.
 
 ```{r inbreed-trend}
 tp_inbred_f <- inbreed(tp_inbred)

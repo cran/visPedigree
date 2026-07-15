@@ -25,6 +25,7 @@ library(visPedigree)
 1.1 [A simple pedigree graph](#1-1)   
 1.1.1 [Highlighting specific individuals](#1-1-1)   
 1.1.2 [Showing inbreeding coefficients](#1-1-2)   
+1.1.3 [Drawing a plant pedigree with monoecious individuals](#1-1-3)   
 1.2 [A reduced pedigree graph](#1-2)   
 1.3 [An outlined pedigree graph](#1-3)   
 1.4 [How to use this package in a selective breeding program](#1-4)   
@@ -44,10 +45,42 @@ A small pedigree is drawn in the following figure. The following code also demon
 tidy_small_ped <-
   tidyped(ped = small_ped,
           cand = c("Y", "Z1", "Z2"))
-visped(tidy_small_ped, compact = TRUE, file = tempfile(fileext = ".pdf"))
+visped(tidy_small_ped, 
+        compact = TRUE, 
+        cex=0.5, 
+        symbolsize=10, 
+        file = tempfile(fileext = ".pdf"))
 ```
 
-In the above graph, two shapes and three colors are used. Circles represent individuals, while squares represent families. Dark sky blue indicates males, dark goldenrod indicates females, and dark olive green indicates unknown sex. For example, a dark sky blue circle represents a male individual, while a dark goldenrod square represents all female individuals in a full-sib family when `compact = TRUE`. The ancestors are drawn at the top and descendants are drawn at the bottom in the pedigree graph. Parents and offspring are connected via dummy nodes. Lines from offspring to dummy nodes are dark grey, while lines from dummy nodes to parents match the parents' respective colors.
+By default, `shapeby = "sex"` encodes individual sex by shape. Females are
+circles, males are squares, individuals of unknown sex are diamonds, and
+monoecious individuals are hexagons. Node color also identifies sex: dark sky
+blue indicates males, dark goldenrod indicates females, teal indicates
+monoecious individuals, and neutral grey indicates unknown sex. Purple is
+reserved for highlighting. A compact family label such as `FS×10` means that
+the rectangle represents 10 terminal, non-parent full siblings; it is not an
+individual identifier. The ancestors are drawn at the top and descendants at
+the bottom. Parents and offspring are connected via virtual nodes. Lines from
+offspring to virtual nodes are dark grey, while parental edges use the
+corresponding male, female, or monoecious color.
+
+Set `shapeby = "role"` to use the legacy role-based symbol scheme, where
+individual records are circles and compact full-sib family summaries are
+green-grey rectangles. Compact family summaries remain green-grey
+rectangles in both modes. In `shapeby = "role"` mode, real individuals remain
+circles, but their fill colors still encode sex.
+
+```{r symbol-schemes, fig.show="hold"}
+visped(tidy_small_ped, 
+      compact = TRUE,
+      cex=0.5, 
+      symbolsize=10)
+visped(tidy_small_ped, 
+        compact = TRUE, 
+        shapeby = "role",
+        cex=0.5, 
+        symbolsize=10)
+```
 
 ### 1.1 A simple pedigree graph {#1-1}
 The trimmed **simple_ped** pedigree is drawn and displayed on the default graphics device. The **addgen** and **addnum** parameters need to be set to TRUE when tidying the pedigree using the **tidyped** function.
@@ -62,6 +95,25 @@ Generation labels can be added on the left margin of the pedigree graph by setti
 visped(tidy_simple_ped, cex = 0.3, symbolsize = 10, genlab = TRUE)
 ```
 
+Instead of the default `G1`, `G2`, ... labels, an unnamed character vector
+can provide one custom label for each displayed generation, from top to
+bottom. This is useful when the plotted pedigree layers have an
+application-specific interpretation. The labels are not inferred from a
+birth-year column, which may not correspond one-to-one with pedigree
+generations in overlapping cohorts.
+
+```{r vissimpleped_custom_genlab, fig.show="hold"}
+generation_labels <- paste0("Gen_", sort(unique(tidy_simple_ped$Gen)))
+visped(tidy_simple_ped, cex = 0.3, symbolsize = 10, genlab = generation_labels, genlabcex=0.6)
+```
+
+In deep pedigrees the generation labels may appear small because their size is tied to the node scaling. The `genlabcex` parameter lets you set the generation-label size independently of the individual-label size (`cex`). For example, when `cex` is deliberately small to fit many individuals, you can still keep the generation labels readable:
+
+```{r vissimpleped_genlabcex, fig.show="hold"}
+# cex controls individual label size; genlabcex controls generation label size
+visped(tidy_simple_ped, cex = 0.3, symbolsize = 15, genlab = TRUE, genlabcex = 0.8)
+```
+
 Figures displayed in the RStudio Plots panel often have limited resolution. Individual IDs may overlap if the pedigree is large and the plot area is restricted. This can be resolved by saving the graph as a vector graphic in a PDF file. The **visped** function will suppress output to the default device if `showgraph = FALSE`.
 
 ```{r}
@@ -69,6 +121,23 @@ suppressMessages(visped(tidy_simple_ped, showgraph = FALSE, file = tempfile(file
 ```
 
 By setting the **file** parameter, you can generate a high-definition PDF version of the pedigree.
+
+SVG output is also supported by using a file name ending in `.svg`. This is useful when the pedigree graph needs to be edited in vector-graphics software or embedded in web documents.
+
+```{r}
+suppressMessages(visped(tidy_simple_ped, showgraph = FALSE, file = tempfile(fileext = ".svg")))
+```
+
+Custom node labels can be displayed either from a selected pedigree column or from a character vector with one value per input row using `labelvar`. Row-aligned vectors remain attached to the correct individuals if the pedigree is internally tidied or reordered. Both forms keep the underlying individual IDs available for tracing and highlighting, while changing the text shown on individual nodes. Compact full-sib family nodes still use the explicit `FS×N` family-size label when `compact = TRUE`.
+
+```{r custom-labels, fig.show="hold"}
+tidy_simple_ped[, ShortLabel := paste0("N", seq_len(.N))]
+visped(tidy_simple_ped, labelvar = "ShortLabel", cex = 0.3, symbolsize = 10)
+
+# A row-aligned vector is also accepted
+visped(tidy_simple_ped, labelvar = rep("1x", nrow(tidy_simple_ped)),
+       cex = 0.3, symbolsize = 10)
+```
 
 #### 1.1.1 Highlighting specific individuals {#1-1-1}
 Specific individuals can be highlighted in the pedigree graph using the **highlight** parameter. This is useful for marking candidates, founders, or any individuals of interest.
@@ -105,6 +174,31 @@ test_ped <- data.table(
 tidy_test_ped_inbreed <- tidyped(test_ped, inbreed = TRUE)
 visped(tidy_test_ped_inbreed, showf = TRUE)
 ```
+
+### 1.1.3 Drawing a plant pedigree with monoecious individuals {#1-1-3}
+
+In plant breeding, many crop species are **monoecious** — a single plant produces both male and female gametes, enabling **self-fertilization** (selfing). When a plant serves as both sire and dam, `tidyped()` with `selfing = TRUE` assigns it `Sex = "monoecious"`. In the graph, monoecious individuals appear as **hexagons** with teal edges and fill, and selfing edges (sire = dam) are drawn in teal.
+
+The following example shows a multi-generation self-pollinating pedigree with inbreeding coefficients displayed:
+
+```{r plant-selfing-draw}
+library(data.table)
+
+# P1 × P2 → F1;  F1 selfs → F2_1, F2_2;  F2_1 selfs → F3
+plant_ped <- data.table(
+  Ind  = c("P1", "P2", "F1", "F2_1", "F2_2", "F3"),
+  Sire = c(NA,   NA,   "P1", "F1",   "F1",   "F2_1"),
+  Dam  = c(NA,   NA,   "P2", "F1",   "F1",   "F2_1")
+)
+
+tp_plant <- tidyped(plant_ped, selfing = TRUE, inbreed = TRUE)
+
+visped(tp_plant, compact = TRUE, showf = TRUE, cex=0.5, symbolsize=10)
+```
+
+Self-fertilization produces rapid inbreeding: *f* = 0.5 after one generation of selfing (`F2_1`, `F2_2`), and *f* = 0.75 after two (`F3`). `F1` and `F2_1` are drawn as hexagons because they act as both sire and dam; selfing edges are shown in teal. For the general shape and color legend, see the introduction of Section 1.
+
+See `vignette("tidy-pedigree", package = "visPedigree")`, section 3.9, for preparing plant pedigrees and calculating inbreeding coefficients.
 
 ### 1.2 A reduced pedigree graph {#1-2}
 
@@ -147,7 +241,7 @@ visped(
 )
 ```
 
-You can open the generated PDF file to view the high-definition pedigree vectorgraph. Most of shapes are square at bottom, and the internal numbers are the total number of male or female individuals for each family. Individual labels may be shorter than the shapes and might not align perfectly. Individual labels can be resized using the `cex` parameter. The `cex` parameter controls the font size of individual IDs. Increasing `cex` makes the labels larger, while decreasing it makes them smaller. The `cex` value typically ranges from 0 to 1, but can be larger; adjustments of 0.1 are usually sufficient. The **visped** function will output warning messages including the cex value which was used for drawing the pedigreed graph. 
+You can open the generated PDF file to view the high-definition pedigree vector graph. Most rectangles at the bottom are compact family summaries, and labels such as `FS×10` report the number of represented full-sib individuals. The summary is sex-neutral because a compacted family may contain individuals of different or unknown sex. Individual labels may be shorter than their shapes and might not align perfectly. Labels can be resized using `cex`; increasing it makes labels larger, while decreasing it makes them smaller. The value typically ranges from 0 to 1, but can be larger, and adjustments of 0.1 are usually sufficient. The **visped** function reports the `cex` value used to draw the graph.
 
 ```{r reduceped2}
 visped(

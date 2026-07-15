@@ -21,8 +21,9 @@ pedrel(
 relationships for. If provided, only individuals matching these IDs in each group
 will be used. Default is NULL (use all individuals in the group).}
 
-\item{compact}{Logical. Whether to use compact representation for large families to
-save memory. Recommended when pedigree size exceeds 25,000. Default is FALSE.}
+\item{compact}{Logical. Retained for backward compatibility. It is ignored
+because \code{pedrel()} now uses matrix-free pedigree products for all
+calculations.}
 
 \item{scale}{Character. One of \code{"relationship"} or \code{"coancestry"}.
 \code{"relationship"} returns the pairwise off-diagonal mean additive
@@ -41,6 +42,9 @@ A \code{data.table} with columns:
     (\eqn{a_{ij} = 2f_{ij}}).
   \item \code{MeanCoan}: Present when \code{scale = "coancestry"}; diagonal-corrected
     population mean coancestry for this group.
+  \item \code{Status}: \code{"ok"}, \code{"skipped"}, or \code{"failed"}.
+  \item \code{Message}: Empty for successful groups; otherwise a diagnostic
+    explaining why \code{NA} was returned.
 }
 }
 \description{
@@ -49,15 +53,20 @@ coefficients (\eqn{a_{ij}}) within cohorts, or the corrected population mean
 coancestry used for pedigree-based diversity summaries.
 }
 \details{
-When \code{scale = "relationship"}, the returned value is the mean of the
-off-diagonal additive relationship coefficients among the selected
-individuals. When \code{scale = "coancestry"}, the returned value is the
-diagonal-corrected population mean coancestry:
-\deqn{\bar{C} = \frac{N - 1}{N} \cdot \frac{\bar{a}_{off}}{2} + \frac{1 + \bar{F}}{2N}}
-where \eqn{\bar{a}_{off}} is the mean off-diagonal relationship, \eqn{\bar{F}}
-is the mean inbreeding coefficient of the selected individuals, and \eqn{N}
-is the number of selected individuals. This \eqn{\bar{C}} matches the
-internal coancestry quantity used to derive \eqn{f_g} in \code{\link{pediv}}.
+Let \eqn{g} be a zero-one indicator vector for the \eqn{N} selected
+individuals and let \eqn{S = g^\prime A g}. When
+\code{scale = "relationship"}, the returned value is
+\deqn{\bar{a}_{off} =
+  \frac{S - \sum_{i:g_i=1}(1 + F_i)}{N(N - 1)},}
+the mean of the off-diagonal additive relationship coefficients. When
+\code{scale = "coancestry"}, the returned value is
+\deqn{\bar{C} = \frac{S}{2N^2},}
+which includes both pairwise coancestry and diagonal self-coancestry. This
+is equivalent to
+\deqn{\bar{C} = \frac{N - 1}{N} \cdot
+  \frac{\bar{a}_{off}}{2} + \frac{1 + \bar{F}}{2N}.}
+The implementation computes \eqn{A g} directly from the pedigree and does
+not construct the dense relationship matrix \eqn{A}.
 }
 \examples{
 \donttest{

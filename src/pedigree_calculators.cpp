@@ -251,7 +251,12 @@ List cpp_build_ainv_triplets(IntegerVector sire, IntegerVector dam, NumericVecto
             if (s > 0 && d > 0) {
                 int r = (s > d) ? s : d;
                 int c = (s > d) ? d : s;
-                row.push_back(r); col.push_back(c); val.push_back(0.25 * alpha);
+                // Matrix::sparseMatrix(symmetric=TRUE) mirrors an off-diagonal
+                // triplet, accounting for both cross-products. With selfing
+                // s == d, the interaction is diagonal and must include both
+                // cross-products explicitly.
+                double cross = (s == d) ? 0.5 * alpha : 0.25 * alpha;
+                row.push_back(r); col.push_back(c); val.push_back(cross);
             }
         }
         
@@ -310,7 +315,8 @@ List cpp_build_ainv_triplets(IntegerVector sire, IntegerVector dam, NumericVecto
             if (s > 0 && d > 0) {
                 int r = (s > d) ? s : d;
                 int c = (s > d) ? d : s;
-                thread_row[tid].push_back(r); thread_col[tid].push_back(c); thread_val[tid].push_back(0.25 * alpha);
+                double cross = (s == d) ? 0.5 * alpha : 0.25 * alpha;
+                thread_row[tid].push_back(r); thread_col[tid].push_back(c); thread_val[tid].push_back(cross);
             }
         }
     }
@@ -382,72 +388,6 @@ arma::mat cpp_calculate_A(IntegerVector sire, IntegerVector dam) {
         }
     }
     return A;
-}
-
-// Calculate mean off-diagonal relationship for a target subset
-// [[Rcpp::export]]
-double cpp_mean_relationship(IntegerVector sire, IntegerVector dam, IntegerVector target_idx) {
-    int n = sire.size();
-    if (dam.size() != n) {
-        stop("sire and dam vectors must have the same length");
-    }
-    if (target_idx.size() < 2) {
-        return NA_REAL;
-    }
-
-    std::vector<unsigned char> is_target(n, 0);
-    int n_target = 0;
-    for (int k = 0; k < target_idx.size(); ++k) {
-        int idx = target_idx[k] - 1;
-        if (idx < 0 || idx >= n) {
-            stop("target_idx contains out-of-bounds index");
-        }
-        if (!is_target[idx]) {
-            is_target[idx] = 1;
-            ++n_target;
-        }
-    }
-    if (n_target < 2) {
-        return NA_REAL;
-    }
-
-    const size_t tri_size = static_cast<size_t>(n) * static_cast<size_t>(n + 1) / 2;
-    std::vector<double> A_tri(tri_size, 0.0);
-    auto tri_idx = [](int i, int j) -> size_t {
-        if (i < j) std::swap(i, j);
-        return static_cast<size_t>(i) * static_cast<size_t>(i + 1) / 2 + static_cast<size_t>(j);
-    };
-
-    std::vector<int> seen_targets;
-    seen_targets.reserve(n_target);
-    double lower_sum = 0.0;
-
-    for (int i = 0; i < n; ++i) {
-        int si = sire[i] - 1;
-        int di = dam[i] - 1;
-
-        if (si >= n || di >= n) {
-            stop("Parent index out of bounds");
-        }
-
-        double fi = (si >= 0 && di >= 0) ? 0.5 * A_tri[tri_idx(si, di)] : 0.0;
-        A_tri[tri_idx(i, i)] = 1.0 + fi;
-
-        for (int j = 0; j < i; ++j) {
-            double val = 0.5 * ((si >= 0 ? A_tri[tri_idx(j, si)] : 0.0) +
-                                (di >= 0 ? A_tri[tri_idx(j, di)] : 0.0));
-            A_tri[tri_idx(i, j)] = val;
-        }
-
-        if (is_target[i]) {
-            for (int tj : seen_targets) {
-                lower_sum += A_tri[tri_idx(i, tj)];
-            }
-            seen_targets.push_back(i);
-        }
-    }
-
-    return (2.0 * lower_sum) / (static_cast<double>(n_target) * static_cast<double>(n_target - 1));
 }
 
 // ============================================================================
@@ -579,28 +519,111 @@ arma::mat cpp_invert_auto(const arma::mat& M) {
     }
 }
 
-// Solve A*x = b using Path Logic
-// [[Rcpp::export]]
-arma::vec cpp_solve_A(IntegerVector sire, IntegerVector dam, NumericVector dii, arma::vec b) {
-    int n = sire.size();
-    if (dam.size() != n || dii.size() != n || b.size() != n) {
-        stop("sire, dam, dii, and b vectors must have the same length");
+// ============================================================================
+// Matrix-free products with the additive relationship matrix
+// ============================================================================
+// For an ordered pedigree, A = T D T', where T is the lower-triangular
+// transmission matrix and D contains Mendelian sampling variances.  These
+// routines apply A or A^-1 to one or more right-hand sides without forming
+// either square matrix.
+//
+// Complexity: O(n * p) time and O(n * p) output/workspace for p columns.
+// Reference: Colleau (2002), Genet Sel Evol 34:409-421.
+// ============================================================================
+
+static void validate_pedigree_product_inputs(
+        const IntegerVector& sire,
+        const IntegerVector& dam,
+        const NumericVector& dii,
+        const arma::mat& rhs) {
+    const int n = sire.size();
+    if (dam.size() != n || dii.size() != n ||
+        rhs.n_rows != static_cast<arma::uword>(n)) {
+        stop("sire, dam, dii, and rhs must have compatible dimensions");
     }
-    
-    arma::vec x = b;
-    for (int i = n - 1; i >= 0; --i) {
-        int s = sire[i] - 1; int d = dam[i] - 1;
-        if (s >= n || d >= n) stop("Parent index out of bounds");
-        if (s >= 0) x[s] -= 0.5 * x[i];
-        if (d >= 0) x[d] -= 0.5 * x[i];
-    }
-    for (int i = 0; i < n; ++i) x[i] *= dii[i];
+
     for (int i = 0; i < n; ++i) {
-        int s = sire[i] - 1; int d = dam[i] - 1;
-        if (s >= 0) x[i] += 0.5 * x[s];
-        if (d >= 0) x[i] += 0.5 * x[d];
+        const int s = sire[i] - 1;
+        const int d = dam[i] - 1;
+        if (s >= n || d >= n) {
+            stop("Parent index out of bounds");
+        }
+        if (s >= i || d >= i) {
+            stop("Pedigree must be ordered with parents before offspring");
+        }
     }
-    return x;
+}
+
+// Compute A * rhs from A = T D T' without materializing A.
+// [[Rcpp::export]]
+arma::mat cpp_multiply_A(
+        IntegerVector sire,
+        IntegerVector dam,
+        NumericVector dii,
+        const arma::mat& rhs) {
+    validate_pedigree_product_inputs(sire, dam, dii, rhs);
+    const int n = sire.size();
+    arma::mat out = rhs;
+
+    // Solve T^{-T} z = rhs, giving z = T' rhs.
+    for (int i = n - 1; i >= 0; --i) {
+        const int s = sire[i] - 1;
+        const int d = dam[i] - 1;
+        if (s >= 0) out.row(s) += 0.5 * out.row(i);
+        if (d >= 0) out.row(d) += 0.5 * out.row(i);
+    }
+
+    // Apply D.
+    for (int i = 0; i < n; ++i) {
+        out.row(i) *= dii[i];
+    }
+
+    // Solve T^{-1} y = D z, giving y = T D T' rhs.
+    for (int i = 0; i < n; ++i) {
+        const int s = sire[i] - 1;
+        const int d = dam[i] - 1;
+        if (s >= 0) out.row(i) += 0.5 * out.row(s);
+        if (d >= 0) out.row(i) += 0.5 * out.row(d);
+    }
+
+    return out;
+}
+
+// Compute A^-1 * rhs from A^-1 = T^-T D^-1 T^-1.
+// [[Rcpp::export]]
+arma::mat cpp_multiply_Ainv(
+        IntegerVector sire,
+        IntegerVector dam,
+        NumericVector dii,
+        const arma::mat& rhs) {
+    validate_pedigree_product_inputs(sire, dam, dii, rhs);
+    const int n = sire.size();
+    arma::mat transformed(rhs.n_rows, rhs.n_cols, arma::fill::zeros);
+
+    // Apply T^-1 = I - P. Read parent values from the unchanged rhs.
+    for (int i = 0; i < n; ++i) {
+        const int s = sire[i] - 1;
+        const int d = dam[i] - 1;
+        transformed.row(i) = rhs.row(i);
+        if (s >= 0) transformed.row(i) -= 0.5 * rhs.row(s);
+        if (d >= 0) transformed.row(i) -= 0.5 * rhs.row(d);
+
+        if (!R_finite(dii[i]) || dii[i] <= 0.0) {
+            stop("Mendelian sampling variance must be finite and positive for Ainv products");
+        }
+        transformed.row(i) /= dii[i];
+    }
+
+    // Apply T^-T = (I - P)' while retaining transformed as the read-only input.
+    arma::mat out = transformed;
+    for (int i = 0; i < n; ++i) {
+        const int s = sire[i] - 1;
+        const int d = dam[i] - 1;
+        if (s >= 0) out.row(s) -= 0.5 * transformed.row(i);
+        if (d >= 0) out.row(d) -= 0.5 * transformed.row(i);
+    }
+
+    return out;
 }
 
 // Generations Top-down
@@ -788,61 +811,6 @@ IntegerVector cpp_assign_generations_bottom(IntegerVector sire, IntegerVector da
     IntegerVector gen(n);
     for (int i = 0; i < n; ++i) gen[i] = max_h - height[i] + 1;
     return gen;
-}
-
-// ============================================================================
-// Calculate Coancestry-based Ne (Delta c)
-// ============================================================================
-// [[Rcpp::export]]
-double cpp_calculate_sampled_coancestry_delta(IntegerVector sire, IntegerVector dam, IntegerVector target_idx, NumericVector ecg) {
-    int n = sire.size();
-    if (dam.size() != n || ecg.size() != n) {
-        stop("sire, dam, and ecg vectors must have the same length");
-    }
-    if (target_idx.size() < 2) return NA_REAL;
-    std::vector<unsigned char> is_target(n, 0);
-    int n_target = 0;
-    for (int k = 0; k < target_idx.size(); ++k) {
-        int idx = target_idx[k] - 1;
-        if (idx < 0 || idx >= n) stop("target_idx contains out-of-bounds index");
-        if (!is_target[idx]) { is_target[idx] = 1; ++n_target; }
-    }
-    if (n_target < 2) return NA_REAL;
-    const size_t tri_size = static_cast<size_t>(n) * static_cast<size_t>(n + 1) / 2;
-    std::vector<double> A_tri(tri_size, 0.0);
-    auto tri_idx = [](int i, int j) -> size_t {
-        if (i < j) std::swap(i, j);
-        return static_cast<size_t>(i) * static_cast<size_t>(i + 1) / 2 + static_cast<size_t>(j);
-    };
-    std::vector<int> seen_targets;
-    seen_targets.reserve(n_target);
-    double sum_delta_c = 0.0;
-    double num_pairs = 0.0;
-    for (int i = 0; i < n; ++i) {
-        int si = sire[i] - 1;
-        int di = dam[i] - 1;
-        if (si >= n || di >= n) stop("Parent index out of bounds");
-        double fi = (si >= 0 && di >= 0) ? 0.5 * A_tri[tri_idx(si, di)] : 0.0;
-        A_tri[tri_idx(i, i)] = 1.0 + fi;
-        for (int j = 0; j < i; ++j) {
-            double val = 0.5 * ((si >= 0 ? A_tri[tri_idx(j, si)] : 0.0) + (di >= 0 ? A_tri[tri_idx(j, di)] : 0.0));
-            A_tri[tri_idx(i, j)] = val;
-        }
-        if (is_target[i]) {
-            for (int tj : seen_targets) {
-                double C_ij = A_tri[tri_idx(i, tj)] / 2.0;
-                double g_ij = (ecg[i] + ecg[tj]) / 2.0;
-                if (g_ij > 0.0) { // Note: changed from > 1.0 as Cervantes uses g_ij natively
-                    double delta_c = 1.0 - std::pow(1.0 - C_ij, 1.0 / g_ij); 
-                    sum_delta_c += delta_c;
-                    num_pairs += 1.0;
-                }
-            }
-            seen_targets.push_back(i);
-        }
-    }
-    if (num_pairs == 0.0) return NA_REAL;
-    return sum_delta_c / num_pairs;
 }
 
 // ============================================================================

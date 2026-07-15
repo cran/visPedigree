@@ -4,7 +4,9 @@
 #' @importFrom graphics strwidth
 #' @keywords internal
 prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL, 
-                              highlight = NULL, trace = FALSE, showf = FALSE, pagewidth = 200, symbolsize = 1, maxiter = 1000, ...) {
+                              highlight = NULL, trace = FALSE, showf = FALSE,
+                              labelvar = NULL, shapeby = "sex", pagewidth = 200,
+                              symbolsize = 1, maxiter = 1000, ...) {
   ped_new <- copy(ped)
 
   # Check and tidyped if necessary
@@ -27,7 +29,15 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
   options(digits = 20)
   on.exit(options(digits = old_digits), add = TRUE)
 
-  ped_igraph_data <- ped2igraph(ped_new, compact, highlight, trace, showf)
+  ped_igraph_data <- ped2igraph(
+    ped_new,
+    compact = compact,
+    highlight = highlight,
+    trace = trace,
+    showf = showf,
+    labelvar = labelvar,
+    shapeby = shapeby
+  )
   ped_igraph <- ped_igraph_data
   real_node <- ped_igraph$node[nodetype %in% c("real", "compact")]
   
@@ -197,14 +207,17 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
   canvas_height <- max(8, canvas_height, canvas_width_s * 0.618)
 
   # Prepare final attributes in data.table BEFORE creating the graph
-  ped_igraph$node[, `:=`(size = 0.001, label.cex = 1.0)]
+  ped_igraph$node[, `:=`(size = 0.001, size2 = 0.001, label.cex = 1.0)]
   
   node_size_val <- round(node_width_s * 100 / canvas_width_s, 8)
   current_cex <- if (is.null(cex)) best_cex else cex
   
   if (outline) {
     # Outline mode: icons are tiny, no labels except highlighted
-    ped_igraph$node[nodetype %in% c("real", "compact"), size := 0.0001]
+    ped_igraph$node[nodetype %in% c("real", "compact"), `:=`(
+      size = 0.0001,
+      size2 = 0.0001
+    )]
     is_h <- !is.na(ped_igraph$node$highlighted) & ped_igraph$node$highlighted
     ped_igraph$node[!is_h, label := ""]
     
@@ -212,12 +225,14 @@ prepare_ped_graph <- function(ped, compact = FALSE, outline = FALSE, cex = NULL,
       highlight_node_size <- round(label_max_width * 100 / canvas_width_s, 8)
       ped_igraph$node[is_h & nodetype %in% c("real", "compact"), `:=`(
         size = highlight_node_size,
+        size2 = highlight_node_size,
         label.cex = if (is.null(cex)) (if (best_cex > 0) best_cex else 0.6) else cex
       )]
     }
   } else {
     ped_igraph$node[nodetype %in% c("real", "compact"), `:=`(
       size = node_size_val,
+      size2 = node_size_val,
       label.cex = current_cex
     )]
   }

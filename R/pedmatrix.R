@@ -124,6 +124,7 @@
 #' 
 #' @seealso 
 #' \code{\link{tidyped}} for preparing pedigree data,
+#' \code{\link{pedprod}} for matrix-free products with A or Ainv,
 #' \code{\link{query_relationship}} for querying individual pairs,
 #' \code{\link{expand_pedmat}} for restoring full dimensions,
 #' \code{\link{vismat}} for visualization,
@@ -173,7 +174,7 @@
 #' AA <- pedmat(tped, method = "AA")
 #' 
 #' # --- Visualization (requires display device) ---
-#' \dontrun{
+#' \donttest{
 #' vismat(A)                       # Heatmap of relationship matrix
 #' vismat(A_compact)               # Works with compact matrices
 #' vismat(A, by = "Gen")     # Group by generation

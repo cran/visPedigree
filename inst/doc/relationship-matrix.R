@@ -27,6 +27,127 @@ vec_f <- pedmat(tped, method = "f")
 ## ----sparse_check-------------------------------------------------------------
 class(mat_A)
 
+## ----pedprod_Ax---------------------------------------------------------------
+# Load example pedigree and tidy it
+data(small_ped)
+tped <- tidyped(small_ped)
+
+# Equal contributions from two candidates; other individuals have zero weight
+weights <- c(Z1 = 0.5, Z2 = 0.5)
+
+# Relationship of every pedigree individual to the weighted candidate group
+Ax <- pedprod(tped, weights)
+head(Ax)
+
+# Average additive relationship c' A c and average coancestry
+mean_relationship <- sum(weights * Ax[names(weights)])
+mean_coancestry <- mean_relationship / 2
+c(mean_relationship = mean_relationship, mean_coancestry = mean_coancestry)
+
+## ----pedprod_named_unnamed----------------------------------------------------
+# Named: only listed individuals get non-zero values
+named_x <- c(Z1 = 0.3, Z2 = 0.4, A = 0.3)
+pedprod(tped, named_x)[1:6]  # B, C, etc. are automatically zero
+
+# Unnamed: must match the pedigree size
+unnamed_x <- rep(1, nrow(tped))
+length(pedprod(tped, unnamed_x))
+
+## ----pedprod_Ainv-------------------------------------------------------------
+# Ainv * vector
+x <- rnorm(nrow(tped))
+Ainv_x <- pedprod(tped, x, method = "Ainv")
+head(Ainv_x)
+
+# Verify against explicit computation (small pedigree only)
+A <- pedmat(tped, method = "A", sparse = FALSE)
+Ainv <- pedmat(tped, method = "Ainv", sparse = FALSE)
+all.equal(
+  unname(Ainv_x),
+  unname(drop(Ainv %*% x)),
+  tolerance = 1e-12
+)
+
+## ----pedprod_Ainv_identity----------------------------------------------------
+# Ainv * (A * x) should recover x (to machine precision)
+A_x <- pedprod(tped, x, method = "A")
+Ainv_Ax <- pedprod(tped, A_x, method = "Ainv")
+all.equal(unname(Ainv_Ax), unname(x), tolerance = 1e-12)
+
+## ----pedprod_AX---------------------------------------------------------------
+# Three ways to weight the SAME two candidates (Z1 and Z2 are full sibs)
+schemes <- cbind(
+  Equal      = c(Z1 = 0.5, Z2 = 0.5),
+  Z1_only    = c(Z1 = 1.0, Z2 = 0.0),
+  Weighted   = c(Z1 = 0.7, Z2 = 0.3)
+)
+AX <- pedprod(tped, schemes)
+
+# The schemes diverge at the candidates themselves (and their descendants);
+# a shared ancestor is equally related to any weighting of two full sibs.
+AX[c("Z1", "Z2"), ]
+
+# Expected average relationship within each contributing group, 0.5 * c'A c.
+# Under random mating this equals the mean inbreeding of the resulting progeny.
+group_coancestry <- 0.5 * colSums(schemes * AX[rownames(schemes), ])
+round(group_coancestry, 5)
+
+## ----pedprod_ocs--------------------------------------------------------------
+# Weighted candidate contributions
+candidates <- setNames(c(0.25, 0.25, 0.25, 0.25), c("Z1", "Z2", "A", "B"))
+Ac <- pedprod(tped, candidates)
+
+# Average coancestry of the selected group: 0.5 * c' A c
+c_accepted <- sum(candidates * Ac[names(candidates)]) / 2
+c_accepted
+
+## ----pedprod_blup-------------------------------------------------------------
+# Simulated breeding values as a matrix right-hand side
+set.seed(20260704)
+Z_design <- cbind(
+  trait1 = rnorm(nrow(tped)),
+  trait2 = rnorm(nrow(tped))
+)
+rownames(Z_design) <- tped$Ind
+
+# Ainv * Z in one traversal — no Ainv ever stored
+Ainv_Z <- pedprod(tped, Z_design, method = "Ainv")
+dim(Ainv_Z)
+Ainv_Z[1:5, ]
+
+## ----pedprod_geneflow---------------------------------------------------------
+# One unit contribution vector per founder: column f isolates founder f
+founder_ids <- tped[Gen == 1, Ind]
+founder_design <- diag(length(founder_ids))
+dimnames(founder_design) <- list(founder_ids, founder_ids)
+
+# A %*% e_f is founder f's expected genetic contribution to every individual
+footprint <- pedprod(tped, founder_design, method = "A")
+
+# Founder composition of one candidate: contributions sum to one
+round(footprint["Z1", ], 4)
+
+# Average founder contribution to the youngest generation, ranked
+young <- tped[Gen == max(Gen), Ind]
+founder_share <- sort(colMeans(footprint[young, , drop = FALSE]), decreasing = TRUE)
+round(founder_share, 4)
+
+## ----pedprod_large_proof, eval=FALSE------------------------------------------
+# # Pedigrees beyond the dense-A guard still work with pedprod()
+# n <- 50000L
+# ids <- paste0("I", seq_len(n))
+# raw <- data.frame(
+#   Ind  = ids,
+#   Sire = c(NA_character_, ids[-n]),
+#   Dam  = NA_character_,
+#   stringsAsFactors = FALSE
+# )
+# tped_large <- tidyped(raw)
+# 
+# # pedprod works; pedmat would error
+# result <- pedprod(tped_large, setNames(1, tail(ids, 1)))
+# length(result)  # 50000
+
 ## ----matrix_summary-----------------------------------------------------------
 tail(summary(mat_A),10)
 

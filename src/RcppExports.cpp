@@ -69,19 +69,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// cpp_mean_relationship
-double cpp_mean_relationship(IntegerVector sire, IntegerVector dam, IntegerVector target_idx);
-RcppExport SEXP _visPedigree_cpp_mean_relationship(SEXP sireSEXP, SEXP damSEXP, SEXP target_idxSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerVector >::type sire(sireSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type dam(damSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type target_idx(target_idxSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_mean_relationship(sire, dam, target_idx));
-    return rcpp_result_gen;
-END_RCPP
-}
 // cpp_calculate_D
 arma::mat cpp_calculate_D(IntegerVector sire, IntegerVector dam, const arma::mat& A);
 RcppExport SEXP _visPedigree_cpp_calculate_D(SEXP sireSEXP, SEXP damSEXP, SEXP ASEXP) {
@@ -139,17 +126,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// cpp_solve_A
-arma::vec cpp_solve_A(IntegerVector sire, IntegerVector dam, NumericVector dii, arma::vec b);
-RcppExport SEXP _visPedigree_cpp_solve_A(SEXP sireSEXP, SEXP damSEXP, SEXP diiSEXP, SEXP bSEXP) {
+// cpp_multiply_A
+arma::mat cpp_multiply_A(IntegerVector sire, IntegerVector dam, NumericVector dii, const arma::mat& rhs);
+RcppExport SEXP _visPedigree_cpp_multiply_A(SEXP sireSEXP, SEXP damSEXP, SEXP diiSEXP, SEXP rhsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type sire(sireSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type dam(damSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type dii(diiSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type b(bSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_solve_A(sire, dam, dii, b));
+    Rcpp::traits::input_parameter< const arma::mat& >::type rhs(rhsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_multiply_A(sire, dam, dii, rhs));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_multiply_Ainv
+arma::mat cpp_multiply_Ainv(IntegerVector sire, IntegerVector dam, NumericVector dii, const arma::mat& rhs);
+RcppExport SEXP _visPedigree_cpp_multiply_Ainv(SEXP sireSEXP, SEXP damSEXP, SEXP diiSEXP, SEXP rhsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type sire(sireSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type dam(damSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type dii(diiSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type rhs(rhsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_multiply_Ainv(sire, dam, dii, rhs));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -190,20 +191,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< IntegerVector >::type dam(damSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type topo_order(topo_orderSEXP);
     rcpp_result_gen = Rcpp::wrap(cpp_assign_generations_bottom(sire, dam, topo_order));
-    return rcpp_result_gen;
-END_RCPP
-}
-// cpp_calculate_sampled_coancestry_delta
-double cpp_calculate_sampled_coancestry_delta(IntegerVector sire, IntegerVector dam, IntegerVector target_idx, NumericVector ecg);
-RcppExport SEXP _visPedigree_cpp_calculate_sampled_coancestry_delta(SEXP sireSEXP, SEXP damSEXP, SEXP target_idxSEXP, SEXP ecgSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerVector >::type sire(sireSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type dam(damSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type target_idx(target_idxSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type ecg(ecgSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_calculate_sampled_coancestry_delta(sire, dam, target_idx, ecg));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -281,17 +268,16 @@ static const R_CallMethodDef CallEntries[] = {
     {"_visPedigree_cpp_calculate_inbreeding", (DL_FUNC) &_visPedigree_cpp_calculate_inbreeding, 2},
     {"_visPedigree_cpp_build_ainv_triplets", (DL_FUNC) &_visPedigree_cpp_build_ainv_triplets, 3},
     {"_visPedigree_cpp_calculate_A", (DL_FUNC) &_visPedigree_cpp_calculate_A, 2},
-    {"_visPedigree_cpp_mean_relationship", (DL_FUNC) &_visPedigree_cpp_mean_relationship, 3},
     {"_visPedigree_cpp_calculate_D", (DL_FUNC) &_visPedigree_cpp_calculate_D, 3},
     {"_visPedigree_cpp_calculate_AA", (DL_FUNC) &_visPedigree_cpp_calculate_AA, 1},
     {"_visPedigree_cpp_invert_dense", (DL_FUNC) &_visPedigree_cpp_invert_dense, 1},
     {"_visPedigree_cpp_invert_sympd", (DL_FUNC) &_visPedigree_cpp_invert_sympd, 1},
     {"_visPedigree_cpp_invert_auto", (DL_FUNC) &_visPedigree_cpp_invert_auto, 1},
-    {"_visPedigree_cpp_solve_A", (DL_FUNC) &_visPedigree_cpp_solve_A, 4},
+    {"_visPedigree_cpp_multiply_A", (DL_FUNC) &_visPedigree_cpp_multiply_A, 4},
+    {"_visPedigree_cpp_multiply_Ainv", (DL_FUNC) &_visPedigree_cpp_multiply_Ainv, 4},
     {"_visPedigree_cpp_assign_generations_top", (DL_FUNC) &_visPedigree_cpp_assign_generations_top, 3},
     {"_visPedigree_cpp_calculate_partial_inbreeding", (DL_FUNC) &_visPedigree_cpp_calculate_partial_inbreeding, 4},
     {"_visPedigree_cpp_assign_generations_bottom", (DL_FUNC) &_visPedigree_cpp_assign_generations_bottom, 3},
-    {"_visPedigree_cpp_calculate_sampled_coancestry_delta", (DL_FUNC) &_visPedigree_cpp_calculate_sampled_coancestry_delta, 4},
     {"_visPedigree_cpp_pedcontrib", (DL_FUNC) &_visPedigree_cpp_pedcontrib, 4},
     {"_visPedigree_cpp_calculate_ancestry", (DL_FUNC) &_visPedigree_cpp_calculate_ancestry, 3},
     {"_visPedigree_cpp_trace_ancestors", (DL_FUNC) &_visPedigree_cpp_trace_ancestors, 4},

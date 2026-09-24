@@ -1,3 +1,19 @@
+# Changes in version 1.10.1
+
+## Bug fixes
+1. **`pedexport(software = "wombat")` now uses the integer layout**: The 1.10.0 character-ID WOMBAT format was rejected by the real WOMBAT program — the WOMBAT manual (section 6.3) requires three integer variables with codes in 0..2147483647, offspring codes numerically larger than either parent, and unknown parents coded `0`. The `wombat` format now shares the integer layout with `blupf90` (including the `xref` attribute and `<file>.xref` mapping file), satisfying these requirements by construction. Non-zero custom `missing` symbols are rejected for `wombat`. Verified end-to-end against the WOMBAT 26-05-2025 binary.
+
+## New features
+1. **`pedexport(software = "hiblup")`**: New format for HIBLUP's `--pedigree` file: character columns `animal`/`sire`/`dam`, no header by default, missing parents coded `"0"`. Verified end-to-end against the HIBLUP binary (estimated additive variance and EBVs identical to ASReml/WOMBAT on the same pedigree).
+
+# Changes in version 1.10.0 released on 8 Aug 2026
+## New features
+1. **`pedexport()` for breeding software formats**: New function `pedexport()` converts a `tidyped` pedigree into the file format of common animal and plant breeding programs - BLUPF90, ASReml, Echidna, WOMBAT, MTDFREML, DMU - plus a generic `numeric` layout and an in-memory `sommer` format. Character formats (`asreml`, `echidna`, `wombat`, `sommer`) keep the original character IDs; numeric formats (`blupf90`, `mtdfreml`, `dmu`, `numeric`) renumber the pedigree and carry an `xref` mapping back to the original IDs (attribute on the returned table, and a `<file>.xref` file when `file` is given), mirroring RENUMF90's `_XrefID` file. Defaults follow each program's conventions for header, separator, and missing-parent symbol, and every format sorts rows so parents precede offspring.
+
+## Improvements
+1. **Safer `pedexport()` files**: Export validation now rejects unsupported or malformed separators, invalid file paths, and unquoted identifiers or missing-parent symbols that would split into extra fields. Partially missing numeric index columns are rebuilt as a consistent `IndNum`/`SireNum`/`DamNum` set, while `sommer` remains an in-memory-only format.
+2. **Sommer relationship-matrix compatibility**: Documented and tested the complete workflow using `pedmat(..., method = "A", sparse = FALSE)`. This returns the base R matrix required by `sommer::vsr(Gu = A)`, with row and column names aligned to `pedexport(..., software = "sommer")$ID`.
+
 # Changes in version 1.9.0 released on 11 Jul 2026
 ## New features
 1. **`visped()` SVG output**: `visped()` now writes SVG files when `file` ends in `.svg`; other file names continue to use PDF output by default.

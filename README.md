@@ -1,5 +1,10 @@
 # visPedigree: Tidying, Analysis, and Fast Visualization of Animal and Plant Pedigrees <img src="https://raw.githubusercontent.com/luansheng/visPedigree/main/man/figures/logo.png" align="right" height="138" alt="" />
 
+<!-- badges: start -->
+[![CRAN status](https://www.r-pkg.org/badges/version/visPedigree)](https://CRAN.R-project.org/package=visPedigree)
+[![metacran downloads](https://cranlogs.r-pkg.org/badges/grand-total/visPedigree)](https://cran.r-project.org/package=visPedigree)
+<!-- badges: end -->
+
 `visPedigree` provides tools for the analysis and visualization of animal and plant pedigrees. Analytical methods cover equivalent complete generations, generation intervals, effective population size, founder and ancestor contributions, partial inbreeding, genetic diversity indices, and relationship matrices (A, D, AA). Core algorithms — ancestry tracing, topological sorting, inbreeding coefficients, and matrix construction — are implemented in C++ (Rcpp/RcppArmadillo) and `data.table`, scaling to pedigrees with over one million individuals. Pedigree graphs are rendered via `igraph`; relationship matrices can be visualized as heatmaps. Complex mating systems are supported, including selfing and pedigrees in which the same individual can appear as both sire and dam.
 
 <p align="center">
@@ -38,9 +43,9 @@ Recommended reading order:
 
 1. [How to tidy a pedigree](https://luansheng.github.io/visPedigree/articles/tidy-pedigree.html)
 2. [Efficient visPedigree Workflows](https://luansheng.github.io/visPedigree/articles/efficient-visPedigree-workflows.html)
-3. [How to draw a pedigree](https://luansheng.github.io/visPedigree/articles/draw-pedigree.html)
-4. [Pedigree Analysis and Population Genetics](https://luansheng.github.io/visPedigree/articles/pedigree-analysis.html)
-5. [Relationship Matrix](https://luansheng.github.io/visPedigree/articles/relationship-matrix.html)
+3. [Pedigree Visualization in R](https://luansheng.github.io/visPedigree/articles/draw-pedigree.html)
+4. [Pedigree Analysis and Genetic Diversity in R](https://luansheng.github.io/visPedigree/articles/pedigree-analysis.html)
+5. [Pedigree Relationship Matrices and Matrix-Free Products in R](https://luansheng.github.io/visPedigree/articles/relationship-matrix.html)
 
 ### Developer documentation
 
@@ -97,5 +102,5 @@ summary(split_list[[1]])
 ```
 
 ## Citation
-
-Luan Sheng (2026). visPedigree: Tidying, Analysis, and Fast Visualization of Animal and Plant Pedigrees. R package version 1.9.0, https://github.com/luansheng/visPedigree.
+If you use visPedigree in published work, please cite:    
+Luan S, Kong J, Xia Z, Kang Z, Qiang G, Luo K, Sui J. 2026. visPedigree: a comprehensive R package for tidying, analyzing, and visualizing breeding pedigrees. Bioinformatics Advances. DOI: [10.1093/bioadv/vbag210](https://doi.org/10.1093/bioadv/vbag210).

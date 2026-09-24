@@ -2,7 +2,7 @@ Package: visPedigree
 Type: Package
 Title: Tidying, Analysis, and Fast Visualization of Animal and Plant
         Pedigrees
-Version: 1.9.0
+Version: 1.10.1
 Authors@R: person("Sheng","Luan", email="luansheng@gmail.com", role = c("aut","cre"))
 Description: Provides tools for the analysis and visualization of animal and
     plant pedigrees. Analytical methods include equivalent complete generations,
@@ -32,11 +32,12 @@ URL: https://github.com/luansheng/visPedigree,
         https://luansheng.github.io/visPedigree/
 BugReports: https://github.com/luansheng/visPedigree/issues
 VignetteBuilder: knitr
+Config/Needs/website: rmarkdown
 Config/testthat/edition: 3
 RoxygenNote: 7.3.3
 NeedsCompilation: yes
-Packaged: 2026-07-15 00:06:43 UTC; luansheng
+Packaged: 2026-09-23 05:09:04 UTC; luansheng
 Author: Sheng Luan [aut, cre]
 Maintainer: Sheng Luan <luansheng@gmail.com>
 Repository: CRAN
-Date/Publication: 2026-07-15 05:30:02 UTC
+Date/Publication: 2026-09-24 11:20:02 UTC

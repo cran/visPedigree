@@ -4,7 +4,7 @@ knitr::opts_chunk$set(
   comment = "#>",
   fig.width = 6.5,
   fig.height = 6.5,
-  dpi = 300,
+  dpi = 200,
   out.width = "100%"
 )
 library(visPedigree)
